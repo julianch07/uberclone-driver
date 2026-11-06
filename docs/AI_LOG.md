@@ -115,3 +115,16 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 - **Archivos y commit:** .env.example, App.js, src/screens/registration/RegistrationScreen.js, src/services/firestoreService.js y src/services/cloudinaryService.js. Commit: feat: guardar registro y fotos del conductor.
 - **Verificación:** Se ejecutó npx expo export --platform ios y la compilación final terminó correctamente. Desde Expo Go se comprobó la autenticación anónima, el guardado exitoso del registro y la recuperación de la información y las fotografías después de cerrar y volver a abrir la aplicación.
 - **Aprendizaje:** Se comprendió cómo integrar Cloudinary y Firestore en una aplicación React Native, almacenar URL de imágenes en lugar de URI locales, recuperar registros asociados al UID del usuario autenticado y utilizar File de expo-file-system para enviar archivos mediante FormData.
+
+### Entrada #8
+
+- **Fecha:** 2026-11-06
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT
+- **Objetivo:** Corregir el selector de fecha de nacimiento y aclarar visualmente que la tercera sección del registro está pendiente.
+- **Prompt:** Solicitud de revisión y corrección del formulario de datos personales y del indicador de pasos para la primera entrega.
+- **Resumen de la respuesta:** Se identificó el uso incorrecto de `onValueChange` en `DateTimePicker` y se indicó reemplazarlo por `onChange`. También se ajustó el texto de la tercera sección para mostrar explícitamente su estado pendiente.
+- **Qué se usó / modificó / descartó:** Se cambió el callback del selector de fecha y se modificó la etiqueta de la tercera sección, sin implementar documentos ni pagos porque están fuera del alcance de esta entrega.
+- **Archivos y commit:** `src/components/registration/PersonalDataForm.js` y `src/screens/registration/RegistrationScreen.js`. Commit pendiente.
+- **Verificación:** Cambios revisados mediante `git diff` y `git diff --check`. La prueba funcional y la compilación quedan pendientes.
+- **Aprendizaje:** Se reforzó la importancia de utilizar las propiedades correctas de los componentes y comunicar claramente las funcionalidades pendientes.

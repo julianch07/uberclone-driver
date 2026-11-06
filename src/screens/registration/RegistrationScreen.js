@@ -1,6 +1,7 @@
 // AI-assisted: see docs/AI_LOG.md #7
 // AI-assisted: see docs/AI_LOG.md #3
 // AI-assisted: see docs/AI_LOG.md #6
+// AI-assisted: see docs/AI_LOG.md #8
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -290,7 +291,7 @@ export default function RegistrationScreen({ uid }) {
                 index === currentStep && styles.activeStepTitle,
               ]}
             >
-              {step.title}
+              {step.id === 3 ? 'Documentos y pagos (pendiente)' : step.title}
             </Text>
           </View>
         ))}
