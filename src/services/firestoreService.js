@@ -1,8 +1,9 @@
-// AI-assisted: see docs/AI_LOG.md #5
+// AI-assisted: see docs/AI_LOG.md #7
 import {
   deleteField,
   doc,
   getDoc,
+  serverTimestamp,
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
@@ -28,4 +29,31 @@ export async function testDriverFirestoreAccess(uid) {
   });
 
   return true;
+}
+
+export async function saveDriverRegistration(uid, personalData, vehicleData) {
+  const driverRef = doc(db, 'drivers', uid);
+
+  await setDoc(
+    driverRef,
+    {
+      personalData,
+      vehicleData,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return true;
+}
+
+export async function getDriverRegistration(uid) {
+  const driverRef = doc(db, 'drivers', uid);
+  const driverSnapshot = await getDoc(driverRef);
+
+  if (!driverSnapshot.exists()) {
+    return null;
+  }
+
+  return driverSnapshot.data();
 }
