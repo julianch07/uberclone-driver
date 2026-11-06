@@ -1,4 +1,4 @@
-
+// AI-assisted: see docs/AI_LOG.md #3
 import { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 
