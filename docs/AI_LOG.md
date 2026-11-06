@@ -153,7 +153,7 @@ Se implementó el contenedor inicial del registro. Se comprendió cómo conectar
 
 **Fecha:** 5 de noviembre de 2026  
 **Herramienta:** ChatGPT  
-**Commit:** Pendiente de creación.
+**Commit:** `7e71e5f`
 
 ### Solicitud realizada a la IA
 
