@@ -1,8 +1,9 @@
-
+// AI-assisted: see docs/AI_LOG.md #7
 // AI-assisted: see docs/AI_LOG.md #3
 // AI-assisted: see docs/AI_LOG.md #6
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +12,11 @@ import {
 } from 'react-native';
 import PersonalDataForm from '../../components/registration/PersonalDataForm';
 import VehicleDataForm from '../../components/registration/VehicleDataForm';
+import { uploadDriverImage } from '../../services/cloudinaryService';
+import {
+  getDriverRegistration,
+  saveDriverRegistration,
+} from '../../services/firestoreService';
 import {
   validatePersonalData,
   validateVehicleData,
@@ -56,11 +62,58 @@ const INITIAL_VEHICLE_DATA = {
   passengerCapacity: '',
 };
 
-export default function RegistrationScreen() {
+export default function RegistrationScreen({ uid }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [personalData, setPersonalData] = useState(INITIAL_PERSONAL_DATA);
   const [vehicleData, setVehicleData] = useState(INITIAL_VEHICLE_DATA);
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [statusType, setStatusType] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRegistration = async () => {
+      try {
+        const registration = await getDriverRegistration(uid);
+
+        if (!isMounted || !registration) {
+          return;
+        }
+
+        setPersonalData({
+          ...INITIAL_PERSONAL_DATA,
+          ...(registration.personalData || {}),
+        });
+
+        setVehicleData({
+          ...INITIAL_VEHICLE_DATA,
+          ...(registration.vehicleData || {}),
+        });
+      } catch (error) {
+        console.error('Error al recuperar el registro:', error);
+
+        if (isMounted) {
+          setStatusType('error');
+          setStatusMessage(
+            'No se pudieron recuperar los datos guardados. Puedes continuar con el registro.'
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadRegistration();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [uid]);
 
   const handlePersonalDataChange = (field, value) => {
     setPersonalData((previousData) => ({
@@ -72,6 +125,8 @@ export default function RegistrationScreen() {
       ...previousErrors,
       [field]: '',
     }));
+
+    setStatusMessage('');
   };
 
   const handleVehicleDataChange = (field, value) => {
@@ -84,6 +139,8 @@ export default function RegistrationScreen() {
       ...previousErrors,
       [field]: '',
     }));
+
+    setStatusMessage('');
   };
 
   const handleImageError = (message) => {
@@ -109,29 +166,88 @@ export default function RegistrationScreen() {
       if (Object.keys(personalDataErrors).length > 0) {
         return;
       }
+
+      setCurrentStep(1);
+    }
+  };
+
+  const handleSaveRegistration = async () => {
+    const vehicleDataErrors = validateVehicleData(vehicleData);
+
+    setErrors(vehicleDataErrors);
+
+    if (Object.keys(vehicleDataErrors).length > 0) {
+      return;
     }
 
-    if (currentStep === 1) {
-      const vehicleDataErrors = validateVehicleData(vehicleData);
+    setIsSaving(true);
+    setStatusMessage('');
+    setStatusType('');
 
-      setErrors(vehicleDataErrors);
+    try {
+      const profilePhotoUrl = /^https?:\/\//i.test(personalData.profilePhoto)
+        ? personalData.profilePhoto
+        : await uploadDriverImage(
+            personalData.profilePhoto,
+            `profile-${uid}`
+          );
 
-      if (Object.keys(vehicleDataErrors).length > 0) {
-        return;
-      }
-    }
+      const vehiclePhotoUrl = /^https?:\/\//i.test(vehicleData.vehiclePhoto)
+        ? vehicleData.vehiclePhoto
+        : await uploadDriverImage(
+            vehicleData.vehiclePhoto,
+            `vehicle-${uid}`
+          );
 
-    if (currentStep < REGISTRATION_STEPS.length - 1) {
-      setCurrentStep((previousStep) => previousStep + 1);
+      const updatedPersonalData = {
+        ...personalData,
+        profilePhoto: profilePhotoUrl,
+      };
+
+      const updatedVehicleData = {
+        ...vehicleData,
+        vehiclePhoto: vehiclePhotoUrl,
+      };
+
+      await saveDriverRegistration(
+        uid,
+        updatedPersonalData,
+        updatedVehicleData
+      );
+
+      setPersonalData(updatedPersonalData);
+      setVehicleData(updatedVehicleData);
+      setStatusType('success');
+      setStatusMessage('¡Tu registro se guardó correctamente!');
+    } catch (error) {
+      console.error('Error al guardar el registro:', error);
+      setStatusType('error');
+      setStatusMessage(
+        error.message || 'No fue posible guardar el registro. Inténtalo nuevamente.'
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleBack = () => {
-    if (currentStep > 0) {
+    if (currentStep > 0 && !isSaving) {
       setCurrentStep((previousStep) => previousStep - 1);
       setErrors({});
+      setStatusMessage('');
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#276EF1" />
+        <Text style={styles.loadingText}>
+          Recuperando el registro del conductor...
+        </Text>
+      </View>
+    );
+  }
 
   const currentRegistrationStep = REGISTRATION_STEPS[currentStep];
 
@@ -182,7 +298,7 @@ export default function RegistrationScreen() {
 
       <View style={styles.card}>
         <Text style={styles.stepLabel}>
-          PASO {currentRegistrationStep.id} DE {REGISTRATION_STEPS.length}
+          PASO {currentRegistrationStep.id} DE 2
         </Text>
 
         <Text style={styles.cardTitle}>
@@ -211,30 +327,56 @@ export default function RegistrationScreen() {
           />
         )}
 
-        {currentStep === 2 && (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>
-              Esta sección se desarrollará en una siguiente entrega.
-            </Text>
-          </View>
-        )}
+        {statusMessage ? (
+          <Text
+            style={[
+              styles.statusMessage,
+              statusType === 'success'
+                ? styles.successMessage
+                : styles.errorMessage,
+            ]}
+          >
+            {statusMessage}
+          </Text>
+        ) : null}
 
         <View style={styles.buttonsContainer}>
           {currentStep > 0 && (
             <TouchableOpacity
-              style={styles.backButton}
+              style={[
+                styles.backButton,
+                isSaving && styles.disabledButton,
+              ]}
               onPress={handleBack}
+              disabled={isSaving}
             >
               <Text style={styles.backButtonText}>Anterior</Text>
             </TouchableOpacity>
           )}
 
-          {currentStep < REGISTRATION_STEPS.length - 1 && (
+          {currentStep === 0 && (
             <TouchableOpacity
               style={styles.nextButton}
               onPress={handleNext}
             >
               <Text style={styles.nextButtonText}>Continuar</Text>
+            </TouchableOpacity>
+          )}
+
+          {currentStep === 1 && (
+            <TouchableOpacity
+              style={[
+                styles.nextButton,
+                isSaving && styles.disabledButton,
+              ]}
+              onPress={handleSaveRegistration}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.nextButtonText}>Guardar registro</Text>
+              )}
             </TouchableOpacity>
           )}
         </View>
@@ -252,6 +394,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 70,
     paddingBottom: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F6F8',
+  },
+  loadingText: {
+    marginTop: 14,
+    color: '#686868',
+    fontSize: 14,
   },
   brand: {
     fontSize: 13,
@@ -334,19 +487,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 24,
   },
-  placeholder: {
-    minHeight: 150,
-    backgroundColor: '#F5F6F8',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderText: {
-    color: '#777',
-    textAlign: 'center',
-    lineHeight: 21,
-  },
   buttonsContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -369,9 +509,26 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 24,
     borderRadius: 10,
+    minWidth: 140,
+    alignItems: 'center',
   },
   nextButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  statusMessage: {
+    marginTop: 20,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  successMessage: {
+    color: '#16803C',
+  },
+  errorMessage: {
+    color: '#D93025',
   },
 });

@@ -102,3 +102,16 @@
 La inteligencia artificial se utilizó como herramienta de apoyo durante el desarrollo del proyecto para orientar configuraciones, proponer estructuras, generar fragmentos de código y resolver dudas técnicas.
 
 Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
+
+### Entrada #7
+
+- **Fecha:** 2026-11-06
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT
+- **Objetivo:** Integrar la subida de fotografías del conductor a Cloudinary y la persistencia de los datos personales y del vehículo en Firestore, permitiendo recuperar el registro al volver a abrir la aplicación.
+- **Prompt:** No existe una única solicitud literal que represente todo el proceso. Se realizaron consultas para configurar Cloudinary, integrar la autenticación con Firebase, implementar la persistencia del registro y solucionar la incompatibilidad de FormData durante la carga de imágenes en React Native.
+- **Resumen de la respuesta:** Se proporcionó orientación y código para implementar el servicio de subida de imágenes a Cloudinary, guardar y recuperar los datos mediante Firestore e integrar estas operaciones en el asistente de registro. Se adaptó el envío de fotografías utilizando la clase File de expo-file-system para resolver el error de compatibilidad de FormData.
+- **Qué se usó / modificó / descartó:** Se integraron la autenticación anónima del conductor, la recuperación de información existente, la subida de fotografías a Cloudinary y el almacenamiento de las URL junto con los datos personales y del vehículo en Firestore. Se mantuvo la tercera pestaña de documentos y pagos como sección pendiente, de acuerdo con el alcance de esta entrega. La configuración local de Cloudinary permanece en .env y no se incluye en el repositorio.
+- **Archivos y commit:** .env.example, App.js, src/screens/registration/RegistrationScreen.js, src/services/firestoreService.js y src/services/cloudinaryService.js. Commit: feat: guardar registro y fotos del conductor.
+- **Verificación:** Se ejecutó npx expo export --platform ios y la compilación final terminó correctamente. Desde Expo Go se comprobó la autenticación anónima, el guardado exitoso del registro y la recuperación de la información y las fotografías después de cerrar y volver a abrir la aplicación.
+- **Aprendizaje:** Se comprendió cómo integrar Cloudinary y Firestore en una aplicación React Native, almacenar URL de imágenes en lugar de URI locales, recuperar registros asociados al UID del usuario autenticado y utilizar File de expo-file-system para enviar archivos mediante FormData.
