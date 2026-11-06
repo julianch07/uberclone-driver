@@ -78,3 +78,35 @@ Se estableció una organización modular que permitirá separar las pantallas, c
 
 ### Estado
 Pendiente de registrar el hash real del commit y verificar su publicación en GitHub.
+---
+
+## Registro 03. Creación del asistente de registro
+
+**Fecha:** 5 de noviembre de 2026
+**Commit:** Pendiente de creación.
+
+### Solicitud realizada a la IA
+Se solicitó desarrollar la estructura inicial del asistente de registro del conductor, con dos etapas: datos personales e información del vehículo.
+
+### Trabajo realizado
+- Creación del componente RegistrationScreen.
+- Implementación de navegación entre dos etapas mediante useState.
+- Creación de indicadores visuales de progreso.
+- Implementación de los botones Continuar y Anterior.
+- Integración del componente con App.js.
+- Configuración de StatusBar.
+
+### Archivos involucrados
+- App.js
+- src/screens/registration/RegistrationScreen.js
+
+### Verificación
+- Aplicación ejecutada mediante Expo.
+- Pantalla visualizada correctamente en Expo Go.
+- Navegación entre las dos etapas comprobada.
+- Código revisado.
+
+### Resultado y aprendizaje
+Se implementó el contenedor inicial del registro. Se comprendió cómo conectar componentes mediante importaciones y cómo utilizar useState para controlar el estado de una pantalla.
+
+Los formularios y el almacenamiento de información se desarrollarán en módulos posteriores.
