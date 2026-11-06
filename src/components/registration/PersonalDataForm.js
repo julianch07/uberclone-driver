@@ -1,5 +1,6 @@
 
 // AI-assisted: see docs/AI_LOG.md #6
+// AI-assisted: see docs/AI_LOG.md #8
 import { useState } from 'react';
 import {
   Image,
@@ -198,7 +199,7 @@ export default function PersonalDataForm({
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             maximumDate={maximumBirthDate}
-            onValueChange={handleBirthDateChange}
+            onChange={handleBirthDateChange}
             onDismiss={() => setShowDatePicker(false)}
           />
         )}
