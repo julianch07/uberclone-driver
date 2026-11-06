@@ -3,202 +3,87 @@
 **Proyecto:** UberClone Driver  
 **Tecnología:** React Native, Expo y JavaScript  
 **Repositorio:** https://github.com/julianch07/uberclone-driver  
-**Desarrollador:** Trabajo individual  
-**Fecha de inicio:** 5 de noviembre de 2026
+**Desarrollo:** Trabajo individual
 
 ---
 
-## Registro 01. Inicialización del proyecto
+### Entrada #1
 
-**Fecha:** 5 de noviembre de 2026  
-**Herramienta:** ChatGPT  
-**Commit:** `b6ee68e`  
-**Mensaje:** `chore: inicializar proyecto Expo y configuración base`
-
-### Solicitud realizada a la IA
-
-Se solicitó acompañamiento para iniciar el proyecto UberClone Driver desde cero, establecer la configuración inicial y organizar el entorno de desarrollo de acuerdo con los requisitos académicos.
-
-**Nota sobre el prompt:** El texto literal de la solicitud original no está disponible en el historial recuperado. Se conserva la descripción documentada inicialmente, sin presentarla como una cita textual.
-
-### Resumen de la respuesta
-
-Se proporcionó orientación para crear el proyecto Expo, configurar JavaScript, preparar las dependencias y establecer el repositorio GitHub.
-
-Se acompañó la configuración del entorno y la verificación inicial del proyecto.
-
-### Trabajo utilizado, modificado o descartado
-
-- Utilizado: configuración inicial del proyecto Expo y recomendaciones de organización.
-- Modificado: ajustes de configuración y archivos del proyecto según las necesidades académicas.
-- Descartado: ninguna modificación identificada.
-
-### Archivos involucrados
-
-- `package.json`
-- `package-lock.json`
-- `app.json`
-- `.gitignore`
-
-### Verificación
-
-- Expo Doctor: 20 de 20 comprobaciones satisfactorias.
-- Autenticación de GitHub CLI verificada.
-- Primer commit publicado correctamente.
-
-### Resultado y aprendizaje
-
-Se estableció la base técnica del proyecto y se verificó que el entorno Expo funciona correctamente. También se aprendió a configurar Git, autenticar GitHub CLI y publicar cambios en un repositorio remoto.
-
-### Observación sobre Git
-
-El commit se creó originalmente en la rama `master`. Posteriormente, la rama principal se migró a `main`, conservando el historial de commits.
+- **Fecha:** 2026-11-05
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT
+- **Objetivo:** Inicializar el proyecto UberClone Driver y configurar el entorno de desarrollo para comenzar su implementación.
+- **Prompt:** No se conserva el texto literal de la solicitud inicial. La configuración se realizó con acompañamiento de IA.
+- **Resumen de la respuesta:** Se proporcionó orientación para inicializar el proyecto con Expo, configurar el entorno de desarrollo y preparar el repositorio para trabajar con Git y GitHub.
+- **Qué se usó / modificó / descartó:** Se utilizó la orientación para crear la estructura inicial del proyecto y configurar las herramientas necesarias para su ejecución.
+- **Archivos y commit:** Archivos base del proyecto Expo y configuración de Git — `b6ee68e`. Mensaje: `chore: inicializar proyecto Expo y configuración base`.
+- **Verificación:** Se ejecutó Expo Doctor y se obtuvieron 20 de 20 comprobaciones satisfactorias. Se verificó la autenticación de GitHub CLI, se realizó el primer commit y se publicó el repositorio. También se cambió la rama inicial `master` por `main`.
+- **Aprendizaje:** Se comprendió el proceso de inicialización de un proyecto con Expo y la importancia de configurar correctamente Git y GitHub desde el comienzo.
 
 ---
 
-## Registro 02. Organización de la arquitectura del proyecto
+### Entrada #2
 
-**Fecha:** 5 de noviembre de 2026  
-**Herramienta:** ChatGPT  
-**Commit:** `49f1cf2`  
-**Mensaje:** `chore: establecer arquitectura modular y bitácora de IA`
-
-### Solicitud realizada a la IA
-
-Se solicitó organizar la estructura interna del proyecto mediante módulos y responsabilidades separadas, con el propósito de facilitar el desarrollo, mantenimiento y ampliación de la aplicación.
-
-**Nota sobre el prompt:** No se recuperó el texto literal de la solicitud original. Se conserva la descripción registrada durante la creación del proyecto.
-
-### Resumen de la respuesta
-
-Se propuso una arquitectura modular para separar las pantallas, componentes, navegación, servicios y lógica reutilizable.
-
-También se estableció la carpeta de documentación para registrar el uso de inteligencia artificial.
-
-### Trabajo utilizado, modificado o descartado
-
-- Utilizado: organización modular de directorios y separación de responsabilidades.
-- Modificado: estructura adaptada a las necesidades del proyecto.
-- Descartado: ninguna modificación identificada.
-
-### Archivos involucrados
-
-- `src/components/`
-- `src/screens/registration/`
-- `src/navigation/`
-- `src/services/`
-- `src/context/`
-- `src/hooks/`
-- `src/utils/`
-- `src/constants/`
-- `src/config/`
-- `docs/AI_LOG.md`
-
-### Verificación
-
-Se comprobó la existencia de los directorios mediante:
-
-`find src docs -type d`
-
-### Resultado y aprendizaje
-
-Se estableció una organización modular que permite separar las responsabilidades de la aplicación. Se comprendió la importancia de evitar concentrar toda la lógica y las pantallas en un único archivo.
+- **Fecha:** 2026-11-05
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT
+- **Objetivo:** Organizar la arquitectura del proyecto mediante una estructura modular que facilite el desarrollo y mantenimiento de la aplicación.
+- **Prompt:** No se conserva el texto literal de la solicitud original. Se solicitó orientación para organizar las carpetas y separar las responsabilidades del proyecto.
+- **Resumen de la respuesta:** Se propuso una estructura modular para organizar los componentes, pantallas, servicios, configuración y documentación.
+- **Qué se usó / modificó / descartó:** Se utilizó la estructura propuesta para organizar las carpetas del proyecto y se creó la bitácora para registrar el uso de inteligencia artificial durante el desarrollo.
+- **Archivos y commit:** Carpetas de `src/` y `docs/`, incluyendo `docs/AI_LOG.md` — `49f1cf2`. Mensaje: `chore: establecer arquitectura modular y bitácora de IA`.
+- **Verificación:** Se verificó la creación de las carpetas mediante el comando `find src docs -type d`.
+- **Aprendizaje:** Se comprendió la importancia de separar las responsabilidades de una aplicación y mantener una estructura organizada para facilitar futuras modificaciones.
 
 ---
 
-## Registro 03. Creación del asistente de registro
+### Entrada #3
 
-**Fecha:** 5 de noviembre de 2026  
-**Herramienta:** ChatGPT  
-**Commit:** `8d0b4ee`  
-**Mensaje:** `feat: crear asistente de registro del conductor`
-
-### Solicitud realizada a la IA
-
-Se solicitó desarrollar la estructura inicial del asistente de registro del conductor, con dos etapas: datos personales e información del vehículo.
-
-**Nota sobre el prompt:** No se recuperó el texto literal de la solicitud original. Se conserva la descripción registrada durante la creación del proyecto.
-
-### Resumen de la respuesta
-
-Se proporcionó una estructura inicial para el registro del conductor mediante dos etapas y controles de navegación.
-
-Se implementó un indicador visual de progreso y se conectó la pantalla principal con `App.js`.
-
-### Trabajo utilizado, modificado o descartado
-
-- Utilizado: estructura inicial del asistente y navegación entre etapas.
-- Modificado: organización de la pantalla según la estructura del proyecto.
-- Pendiente: formularios completos, validaciones y persistencia de datos.
-
-### Archivos involucrados
-
-- `App.js`
-- `src/screens/registration/RegistrationScreen.js`
-
-### Verificación
-
-- Aplicación ejecutada mediante Expo.
-- Pantalla visualizada correctamente en Expo Go.
-- Navegación entre las dos etapas comprobada.
-- Código revisado.
-
-### Resultado y aprendizaje
-
-Se implementó el contenedor inicial del registro. Se comprendió cómo conectar componentes mediante importaciones y cómo utilizar `useState` para controlar el estado de una pantalla.
+- **Fecha:** 2026-11-05
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT
+- **Objetivo:** Crear la estructura inicial del asistente de registro del conductor, organizando el proceso en diferentes pasos.
+- **Prompt:** No se conserva el texto literal de la solicitud original. Se solicitó ayuda para implementar el flujo inicial de registro.
+- **Resumen de la respuesta:** Se proporcionó una implementación inicial de un asistente de registro con dos pasos, un indicador de progreso y navegación entre las pantallas correspondientes.
+- **Qué se usó / modificó / descartó:** Se utilizó la implementación como base visual y funcional para representar el proceso de registro del conductor. Los formularios todavía corresponden a una estructura de demostración.
+- **Archivos y commit:** `App.js` y archivos relacionados con las pantallas y componentes del registro — `8d0b4ee`. Mensaje: `feat: crear asistente de registro del conductor`.
+- **Verificación:** Se ejecutó el proyecto mediante Expo Go y se comprobó visualmente la pantalla de registro y la navegación entre los pasos.
+- **Aprendizaje:** Se comprendió cómo dividir una funcionalidad en componentes y pantallas reutilizables para organizar mejor la interfaz de usuario.
 
 ---
 
-## Registro 04. Creación de la documentación README
+### Entrada #4
 
-**Fecha:** 5 de noviembre de 2026  
-**Herramienta:** ChatGPT  
-**Commit:** `7e71e5f`
+- **Fecha:** 2026-11-05
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT
+- **Objetivo:** Crear la documentación README para explicar el propósito del proyecto, las tecnologías utilizadas y las instrucciones básicas de instalación y ejecución.
+- **Prompt:** "que hago en readme"
+- **Resumen de la respuesta:** Se explicó la importancia del archivo README y se propuso una estructura para documentar el proyecto, sus tecnologías, instalación y ejecución.
+- **Qué se usó / modificó / descartó:** Se utilizó la orientación para crear el README del repositorio y describir la información principal del proyecto.
+- **Archivos y commit:** `README.md` — `7e71e5f`. Mensaje: `docs: documentar el proyecto y registrar uso de IA`.
+- **Verificación:** Se revisó el contenido del README y se verificó su inclusión en el repositorio.
+- **Aprendizaje:** Se comprendió la importancia de documentar un proyecto para facilitar su instalación, comprensión y presentación a otros desarrolladores.
 
-### Solicitud realizada a la IA
-
-Prompt original:
-
-"que hago en readme"
-
-### Resumen de la respuesta
-
-Se explicó la función del archivo README y se proporcionó una estructura de documentación para el proyecto.
-
-Se elaboró contenido con tecnologías, requisitos previos, instalación, ejecución, estructura de directorios, alcance de desarrollo y uso de inteligencia artificial.
-
-### Trabajo utilizado, modificado o descartado
-
-- Utilizado: estructura y contenido de documentación propuestos.
-- Modificado: contenido adaptado a las versiones y tecnologías reales del proyecto.
-- Descartado: instrucciones de configuración de funcionalidades que todavía no están implementadas.
-
-### Archivos involucrados
-
-- `README.md`
-
-### Verificación
-
-- Archivo README creado en la raíz del repositorio.
-- Contenido revisado mediante la terminal.
-- Encabezados y secciones Markdown comprobados.
-- Enlace relativo a `docs/AI_LOG.md` incluido.
-
-### Resultado y aprendizaje
-
-Se creó la documentación principal del proyecto para facilitar su comprensión, instalación y ejecución. Se aprendió la importancia de documentar las tecnologías utilizadas, los comandos de ejecución y el proceso de desarrollo.
-
-### Estado
-
-Commit `7e71e5f` publicado correctamente en la rama `feature/registro-datos-personales`.
 ---
 
-## Consideraciones generales
+### Entrada #5
 
-- Los cambios se desarrollan en ramas de trabajo y se integran a `main` mediante Pull Requests.
-- Los commits deben describir únicamente los cambios realmente implementados.
-- Las verificaciones deben corresponder a pruebas efectivamente realizadas.
-- Los prompts deben registrarse literalmente siempre que estén disponibles.
-- No se deben incluir contraseñas, tokens, claves privadas ni datos personales reales.
-- La bitácora se actualizará durante el desarrollo del proyecto.
+- **Fecha:** 2026-11-06
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT
+- **Objetivo:** Configurar Firebase en UberClone Driver e integrar los servicios iniciales de autenticación anónima y acceso a Firestore, utilizando variables de entorno para proteger la configuración.
+- **Prompt:** No existe una única solicitud literal que represente todo el proceso. Se realizaron varias consultas para configurar Firebase, instalar sus dependencias, preparar la persistencia de autenticación y organizar los servicios de conexión.
+- **Resumen de la respuesta:** Se proporcionaron instrucciones para crear un proyecto en Firebase, registrar una aplicación web, instalar Firebase SDK y AsyncStorage, configurar las variables de entorno e implementar la inicialización de Firebase, la autenticación y las operaciones básicas de Firestore.
+- **Qué se usó / modificó / descartó:** Se utilizó la configuración propuesta para crear el proyecto Firebase `uberclone-driver-8e0bf`, registrar la aplicación web, crear la base de datos Firestore en la región `southamerica-east1`, instalar Firebase SDK versión `13.2.0` y AsyncStorage, configurar las variables de entorno y habilitar la autenticación anónima. También se implementaron los servicios de autenticación y Firestore, y se integraron las pruebas iniciales en `App.js`.
+- **Archivos y commit:** `package.json`, `package-lock.json`, `.env.example`, `.gitignore`, `App.js`, `src/config/firebase.js`, `src/services/authService.js` y `src/services/firestoreService.js` — `8c2720d`. Mensaje: `feat: integrar Firebase y autenticación del conductor`. El archivo `.env` se configuró localmente y permanece excluido del repositorio.
+- **Verificación:** Se verificó la instalación de Firebase mediante `npm ls firebase`. Se habilitó el proveedor de autenticación anónima desde Firebase Console. Se inició Expo con `npx expo start --clear` y se comprobó desde Expo Go que la aplicación autenticó al conductor anónimamente. En la consola se obtuvo su UID y el mensaje `Conexión con Firestore verificada correctamente.`. También se comprobó la escritura, lectura y eliminación del campo de prueba en Firestore. Se verificó que `.env` permanece excluido de Git.
+- **Aprendizaje:** Se comprendió cómo inicializar Firebase en React Native, mantener la sesión de autenticación mediante AsyncStorage, separar los servicios de autenticación y Firestore, proteger las variables de entorno y comprobar las operaciones básicas de una base de datos desde la aplicación.
 
+---
+
+### Consideraciones generales
+
+La inteligencia artificial se utilizó como herramienta de apoyo durante el desarrollo del proyecto para orientar configuraciones, proponer estructuras, generar fragmentos de código y resolver dudas técnicas.
+
+Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
