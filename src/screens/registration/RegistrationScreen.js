@@ -1,6 +1,20 @@
+
 // AI-assisted: see docs/AI_LOG.md #3
+// AI-assisted: see docs/AI_LOG.md #6
 import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import PersonalDataForm from '../../components/registration/PersonalDataForm';
+import VehicleDataForm from '../../components/registration/VehicleDataForm';
+import {
+  validatePersonalData,
+  validateVehicleData,
+} from '../../utils/registrationValidation';
 
 const REGISTRATION_STEPS = [
   {
@@ -13,27 +27,120 @@ const REGISTRATION_STEPS = [
     title: 'Vehículo',
     description: 'Información del vehículo que utilizarás',
   },
+  {
+    id: 3,
+    title: 'Documentos y pagos',
+    description: 'Sección pendiente para una siguiente entrega',
+  },
 ];
+
+const INITIAL_PERSONAL_DATA = {
+  profilePhoto: '',
+  fullName: '',
+  identityDocument: '',
+  phone: '',
+  birthDate: '',
+  gender: '',
+  email: '',
+  language: '',
+};
+
+const INITIAL_VEHICLE_DATA = {
+  vehiclePhoto: '',
+  category: '',
+  plate: '',
+  make: '',
+  model: '',
+  year: '',
+  color: '',
+  passengerCapacity: '',
+};
 
 export default function RegistrationScreen() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [personalData, setPersonalData] = useState(INITIAL_PERSONAL_DATA);
+  const [vehicleData, setVehicleData] = useState(INITIAL_VEHICLE_DATA);
+  const [errors, setErrors] = useState({});
+
+  const handlePersonalDataChange = (field, value) => {
+    setPersonalData((previousData) => ({
+      ...previousData,
+      [field]: value,
+    }));
+
+    setErrors((previousErrors) => ({
+      ...previousErrors,
+      [field]: '',
+    }));
+  };
+
+  const handleVehicleDataChange = (field, value) => {
+    setVehicleData((previousData) => ({
+      ...previousData,
+      [field]: value,
+    }));
+
+    setErrors((previousErrors) => ({
+      ...previousErrors,
+      [field]: '',
+    }));
+  };
+
+  const handleImageError = (message) => {
+    setErrors((previousErrors) => ({
+      ...previousErrors,
+      profilePhoto: message,
+    }));
+  };
+
+  const handleVehicleImageError = (message) => {
+    setErrors((previousErrors) => ({
+      ...previousErrors,
+      vehiclePhoto: message,
+    }));
+  };
 
   const handleNext = () => {
+    if (currentStep === 0) {
+      const personalDataErrors = validatePersonalData(personalData);
+
+      setErrors(personalDataErrors);
+
+      if (Object.keys(personalDataErrors).length > 0) {
+        return;
+      }
+    }
+
+    if (currentStep === 1) {
+      const vehicleDataErrors = validateVehicleData(vehicleData);
+
+      setErrors(vehicleDataErrors);
+
+      if (Object.keys(vehicleDataErrors).length > 0) {
+        return;
+      }
+    }
+
     if (currentStep < REGISTRATION_STEPS.length - 1) {
-      setCurrentStep(currentStep + 1);
+      setCurrentStep((previousStep) => previousStep + 1);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+      setCurrentStep((previousStep) => previousStep - 1);
+      setErrors({});
     }
   };
 
   const currentRegistrationStep = REGISTRATION_STEPS[currentStep];
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.brand}>UBERCLONE DRIVER</Text>
 
       <Text style={styles.heading}>Registro de conductor</Text>
@@ -75,7 +182,7 @@ export default function RegistrationScreen() {
 
       <View style={styles.card}>
         <Text style={styles.stepLabel}>
-          PASO {currentRegistrationStep.id} DE 2
+          PASO {currentRegistrationStep.id} DE {REGISTRATION_STEPS.length}
         </Text>
 
         <Text style={styles.cardTitle}>
@@ -86,11 +193,31 @@ export default function RegistrationScreen() {
           {currentRegistrationStep.description}
         </Text>
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>
-            Aquí construiremos el formulario de esta sección.
-          </Text>
-        </View>
+        {currentStep === 0 && (
+          <PersonalDataForm
+            values={personalData}
+            errors={errors}
+            onChange={handlePersonalDataChange}
+            onError={handleImageError}
+          />
+        )}
+
+        {currentStep === 1 && (
+          <VehicleDataForm
+            values={vehicleData}
+            errors={errors}
+            onChange={handleVehicleDataChange}
+            onError={handleVehicleImageError}
+          />
+        )}
+
+        {currentStep === 2 && (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>
+              Esta sección se desarrollará en una siguiente entrega.
+            </Text>
+          </View>
+        )}
 
         <View style={styles.buttonsContainer}>
           {currentStep > 0 && (
@@ -112,16 +239,19 @@ export default function RegistrationScreen() {
           )}
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
     backgroundColor: '#F5F6F8',
+  },
+  container: {
     paddingHorizontal: 24,
     paddingTop: 70,
+    paddingBottom: 40,
   },
   brand: {
     fontSize: 13,
@@ -171,9 +301,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   stepTitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#888',
     marginTop: 8,
+    textAlign: 'center',
   },
   activeStepTitle: {
     color: '#141414',
@@ -201,12 +332,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#686868',
     marginTop: 8,
+    marginBottom: 24,
   },
   placeholder: {
     minHeight: 150,
     backgroundColor: '#F5F6F8',
     borderRadius: 12,
-    marginTop: 24,
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
