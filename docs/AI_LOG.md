@@ -190,8 +190,7 @@ Se creó la documentación principal del proyecto para facilitar su comprensión
 
 ### Estado
 
-Pendiente de registrar el hash real del commit y verificar su publicación en GitHub.
-
+Commit `7e71e5f` publicado correctamente en la rama `feature/registro-datos-personales`.
 ---
 
 ## Consideraciones generales
