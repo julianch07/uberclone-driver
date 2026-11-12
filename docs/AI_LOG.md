@@ -128,3 +128,17 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 - **Archivos y commit:** `src/components/registration/PersonalDataForm.js` y `src/screens/registration/RegistrationScreen.js`. Commit pendiente.
 - **Verificación:** Cambios revisados mediante `git diff` y `git diff --check`. La prueba funcional y la compilación quedan pendientes.
 - **Aprendizaje:** Se reforzó la importancia de utilizar las propiedades correctas de los componentes y comunicar claramente las funcionalidades pendientes.
+
+### Entrada #9
+
+- **Fecha:** 2026-11-11
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT
+- **Objetivo:** Implementar la tercera sección del registro del conductor, correspondiente a documentos y pagos, e integrar su validación, almacenamiento y navegación con las secciones anteriores.
+- **Prompt:** No existe una única solicitud literal que represente todo el proceso. Se realizaron consultas para desarrollar el formulario de documentos y pagos, integrar sus datos con Firestore y Cloudinary, implementar las validaciones y permitir la navegación entre las tres secciones.
+- **Resumen de la respuesta:** Se proporcionó orientación y código para crear el componente `DocumentsPaymentsForm`, validar los datos y documentos requeridos, incorporar la aceptación de términos y condiciones, guardar la información del registro y permitir navegar entre las secciones.
+- **Qué se usó / modificó / descartó:** Se implementó el formulario de documentos y pagos, incluyendo número y fotografía de licencia de conducción, fechas de vencimiento, fotografías del SOAT y revisión técnico-mecánica, correo de Mercado Pago y aceptación de términos. Se actualizaron las validaciones, el servicio de Firestore y la pantalla principal del registro para integrar los tres pasos y guardar las fotografías en Cloudinary. La revisión técnico-mecánica se maneja según su aplicabilidad.
+- **Archivos:** `src/components/registration/DocumentsPaymentsForm.js`, `src/screens/registration/RegistrationScreen.js`, `src/services/firestoreService.js`, `src/utils/registrationValidation.js`, `app.json`, `package.json` y `package-lock.json`.
+- **Commit:** `feat(registration): add documents and payments step`.
+- **Verificación:** Se ejecutó `npx expo export --platform ios` y la exportación terminó correctamente. Desde Expo Go se comprobó la visualización y navegación entre las tres secciones, las validaciones de campos obligatorios, el guardado exitoso del registro y la recuperación de los datos después de cerrar y volver a abrir la aplicación.
+- **Aprendizaje:** Se comprendió cómo ampliar un asistente de registro con nuevos componentes, centralizar las validaciones por sección, integrar fotografías y datos adicionales en los servicios de persistencia y controlar la navegación sin perder la información guardada.

@@ -1,7 +1,4 @@
-// AI-assisted: see docs/AI_LOG.md #7
-// AI-assisted: see docs/AI_LOG.md #3
-// AI-assisted: see docs/AI_LOG.md #6
-// AI-assisted: see docs/AI_LOG.md #8
+// AI-assisted: see docs/AI_LOG.md
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,16 +8,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 import PersonalDataForm from '../../components/registration/PersonalDataForm';
 import VehicleDataForm from '../../components/registration/VehicleDataForm';
+import DocumentsPaymentsForm from '../../components/registration/DocumentsPaymentsForm';
+
 import { uploadDriverImage } from '../../services/cloudinaryService';
 import {
   getDriverRegistration,
   saveDriverRegistration,
 } from '../../services/firestoreService';
+
 import {
   validatePersonalData,
   validateVehicleData,
+  validateDocumentsPayments,
 } from '../../utils/registrationValidation';
 
 const REGISTRATION_STEPS = [
@@ -37,7 +39,7 @@ const REGISTRATION_STEPS = [
   {
     id: 3,
     title: 'Documentos y pagos',
-    description: 'Sección pendiente para una siguiente entrega',
+    description: 'Documentación del conductor y configuración de pagos',
   },
 ];
 
@@ -63,10 +65,33 @@ const INITIAL_VEHICLE_DATA = {
   passengerCapacity: '',
 };
 
+const INITIAL_DOCUMENTS_DATA = {
+  licenseNumber: '',
+  licensePhoto: '',
+  soatPhoto: '',
+  technicalReviewPhoto: '',
+  licenseExpiration: '',
+  soatExpiration: '',
+  technicalReviewExpiration: '',
+  mercadoPagoEmail: '',
+  acceptedTerms: false,
+};
+
 export default function RegistrationScreen({ uid }) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [personalData, setPersonalData] = useState(INITIAL_PERSONAL_DATA);
-  const [vehicleData, setVehicleData] = useState(INITIAL_VEHICLE_DATA);
+
+  const [personalData, setPersonalData] = useState(
+    INITIAL_PERSONAL_DATA
+  );
+
+  const [vehicleData, setVehicleData] = useState(
+    INITIAL_VEHICLE_DATA
+  );
+
+  const [documentsData, setDocumentsData] = useState(
+    INITIAL_DOCUMENTS_DATA
+  );
+
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -93,6 +118,11 @@ export default function RegistrationScreen({ uid }) {
           ...INITIAL_VEHICLE_DATA,
           ...(registration.vehicleData || {}),
         });
+
+        setDocumentsData({
+          ...INITIAL_DOCUMENTS_DATA,
+          ...(registration.documentsData || {}),
+        });
       } catch (error) {
         console.error('Error al recuperar el registro:', error);
 
@@ -116,12 +146,7 @@ export default function RegistrationScreen({ uid }) {
     };
   }, [uid]);
 
-  const handlePersonalDataChange = (field, value) => {
-    setPersonalData((previousData) => ({
-      ...previousData,
-      [field]: value,
-    }));
-
+  const clearFieldError = (field) => {
     setErrors((previousErrors) => ({
       ...previousErrors,
       [field]: '',
@@ -130,18 +155,31 @@ export default function RegistrationScreen({ uid }) {
     setStatusMessage('');
   };
 
+  const handlePersonalDataChange = (field, value) => {
+    setPersonalData((previousData) => ({
+      ...previousData,
+      [field]: value,
+    }));
+
+    clearFieldError(field);
+  };
+
   const handleVehicleDataChange = (field, value) => {
     setVehicleData((previousData) => ({
       ...previousData,
       [field]: value,
     }));
 
-    setErrors((previousErrors) => ({
-      ...previousErrors,
-      [field]: '',
+    clearFieldError(field);
+  };
+
+  const handleDocumentsDataChange = (field, value) => {
+    setDocumentsData((previousData) => ({
+      ...previousData,
+      [field]: value,
     }));
 
-    setStatusMessage('');
+    clearFieldError(field);
   };
 
   const handleImageError = (message) => {
@@ -158,26 +196,110 @@ export default function RegistrationScreen({ uid }) {
     }));
   };
 
+  const handleDocumentsError = (field, message) => {
+    setErrors((previousErrors) => ({
+      ...previousErrors,
+      [field]: message,
+    }));
+  };
+
   const handleNext = () => {
+    if (isSaving || currentStep >= 2) {
+      return;
+    }
+
+    let validationErrors = {};
+
     if (currentStep === 0) {
-      const personalDataErrors = validatePersonalData(personalData);
+      validationErrors = validatePersonalData(personalData);
+    } else if (currentStep === 1) {
+      validationErrors = validateVehicleData(vehicleData);
+    }
 
+    setErrors(validationErrors);
+    setStatusMessage('');
+
+    if (Object.keys(validationErrors).length > 0) {
+      return;
+    }
+
+    setCurrentStep((previousStep) => previousStep + 1);
+  };
+
+  const handleStepPress = (targetStep) => {
+    if (isSaving || targetStep === currentStep) {
+      return;
+    }
+
+    if (targetStep < currentStep) {
+      setCurrentStep(targetStep);
+      setErrors({});
+      setStatusMessage('');
+      return;
+    }
+
+    const personalDataErrors = validatePersonalData(personalData);
+
+    if (Object.keys(personalDataErrors).length > 0) {
       setErrors(personalDataErrors);
+      setCurrentStep(0);
+      setStatusMessage('');
+      return;
+    }
 
-      if (Object.keys(personalDataErrors).length > 0) {
+    if (targetStep === 2) {
+      const vehicleDataErrors = validateVehicleData(vehicleData);
+
+      if (Object.keys(vehicleDataErrors).length > 0) {
+        setErrors(vehicleDataErrors);
+        setCurrentStep(1);
+        setStatusMessage('');
         return;
       }
-
-      setCurrentStep(1);
     }
+
+    setErrors({});
+    setStatusMessage('');
+    setCurrentStep(targetStep);
+  };
+
+  const uploadImageIfNeeded = async (uri, publicId) => {
+    if (!uri || /^https?:\/\//i.test(uri)) {
+      return uri;
+    }
+
+    return uploadDriverImage(uri, publicId);
   };
 
   const handleSaveRegistration = async () => {
+    if (isSaving) {
+      return;
+    }
+
+    const personalDataErrors = validatePersonalData(personalData);
+
+    if (Object.keys(personalDataErrors).length > 0) {
+      setErrors(personalDataErrors);
+      setCurrentStep(0);
+      setStatusMessage('');
+      return;
+    }
+
     const vehicleDataErrors = validateVehicleData(vehicleData);
 
-    setErrors(vehicleDataErrors);
-
     if (Object.keys(vehicleDataErrors).length > 0) {
+      setErrors(vehicleDataErrors);
+      setCurrentStep(1);
+      setStatusMessage('');
+      return;
+    }
+
+    const documentsDataErrors = validateDocumentsPayments(documentsData);
+
+    setErrors(documentsDataErrors);
+
+    if (Object.keys(documentsDataErrors).length > 0) {
+      setStatusMessage('');
       return;
     }
 
@@ -186,19 +308,30 @@ export default function RegistrationScreen({ uid }) {
     setStatusType('');
 
     try {
-      const profilePhotoUrl = /^https?:\/\//i.test(personalData.profilePhoto)
-        ? personalData.profilePhoto
-        : await uploadDriverImage(
-            personalData.profilePhoto,
-            `profile-${uid}`
-          );
+      const profilePhotoUrl = await uploadImageIfNeeded(
+        personalData.profilePhoto,
+        `profile-${uid}`
+      );
 
-      const vehiclePhotoUrl = /^https?:\/\//i.test(vehicleData.vehiclePhoto)
-        ? vehicleData.vehiclePhoto
-        : await uploadDriverImage(
-            vehicleData.vehiclePhoto,
-            `vehicle-${uid}`
-          );
+      const vehiclePhotoUrl = await uploadImageIfNeeded(
+        vehicleData.vehiclePhoto,
+        `vehicle-${uid}`
+      );
+
+      const licensePhotoUrl = await uploadImageIfNeeded(
+        documentsData.licensePhoto,
+        `license-${uid}`
+      );
+
+      const soatPhotoUrl = await uploadImageIfNeeded(
+        documentsData.soatPhoto,
+        `soat-${uid}`
+      );
+
+      const technicalReviewPhotoUrl = await uploadImageIfNeeded(
+        documentsData.technicalReviewPhoto,
+        `technical-review-${uid}`
+      );
 
       const updatedPersonalData = {
         ...personalData,
@@ -210,21 +343,35 @@ export default function RegistrationScreen({ uid }) {
         vehiclePhoto: vehiclePhotoUrl,
       };
 
+      const updatedDocumentsData = {
+        ...documentsData,
+        licensePhoto: licensePhotoUrl,
+        soatPhoto: soatPhotoUrl,
+        technicalReviewPhoto: technicalReviewPhotoUrl,
+      };
+
       await saveDriverRegistration(
         uid,
         updatedPersonalData,
-        updatedVehicleData
+        updatedVehicleData,
+        updatedDocumentsData
       );
 
       setPersonalData(updatedPersonalData);
       setVehicleData(updatedVehicleData);
+      setDocumentsData(updatedDocumentsData);
+
       setStatusType('success');
-      setStatusMessage('¡Tu registro se guardó correctamente!');
+      setStatusMessage(
+        '¡Tu registro se guardó correctamente!'
+      );
     } catch (error) {
       console.error('Error al guardar el registro:', error);
+
       setStatusType('error');
       setStatusMessage(
-        error.message || 'No fue posible guardar el registro. Inténtalo nuevamente.'
+        error.message ||
+          'No fue posible guardar el registro. Inténtalo nuevamente.'
       );
     } finally {
       setIsSaving(false);
@@ -268,7 +415,13 @@ export default function RegistrationScreen({ uid }) {
 
       <View style={styles.progressContainer}>
         {REGISTRATION_STEPS.map((step, index) => (
-          <View key={step.id} style={styles.stepContainer}>
+          <TouchableOpacity
+            key={step.id}
+            style={styles.stepContainer}
+            onPress={() => handleStepPress(index)}
+            disabled={isSaving}
+            activeOpacity={0.7}
+          >
             <View
               style={[
                 styles.stepCircle,
@@ -291,15 +444,15 @@ export default function RegistrationScreen({ uid }) {
                 index === currentStep && styles.activeStepTitle,
               ]}
             >
-              {step.id === 3 ? 'Documentos y pagos (pendiente)' : step.title}
+              {step.title}
             </Text>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
 
       <View style={styles.card}>
         <Text style={styles.stepLabel}>
-          PASO {currentRegistrationStep.id} DE 2
+          PASO {currentRegistrationStep.id} DE 3
         </Text>
 
         <Text style={styles.cardTitle}>
@@ -325,6 +478,15 @@ export default function RegistrationScreen({ uid }) {
             errors={errors}
             onChange={handleVehicleDataChange}
             onError={handleVehicleImageError}
+          />
+        )}
+
+        {currentStep === 2 && (
+          <DocumentsPaymentsForm
+            values={documentsData}
+            errors={errors}
+            onChange={handleDocumentsDataChange}
+            onError={handleDocumentsError}
           />
         )}
 
@@ -355,16 +517,20 @@ export default function RegistrationScreen({ uid }) {
             </TouchableOpacity>
           )}
 
-          {currentStep === 0 && (
+          {currentStep < 2 && (
             <TouchableOpacity
-              style={styles.nextButton}
+              style={[
+                styles.nextButton,
+                isSaving && styles.disabledButton,
+              ]}
               onPress={handleNext}
+              disabled={isSaving}
             >
               <Text style={styles.nextButtonText}>Continuar</Text>
             </TouchableOpacity>
           )}
 
-          {currentStep === 1 && (
+          {currentStep === 2 && (
             <TouchableOpacity
               style={[
                 styles.nextButton,
@@ -376,7 +542,9 @@ export default function RegistrationScreen({ uid }) {
               {isSaving ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.nextButtonText}>Guardar registro</Text>
+                <Text style={styles.nextButtonText}>
+                  Guardar registro
+                </Text>
               )}
             </TouchableOpacity>
           )}

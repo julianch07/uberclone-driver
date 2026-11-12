@@ -1,3 +1,4 @@
+
 // AI-assisted: see docs/AI_LOG.md #7
 import {
   deleteField,
@@ -20,7 +21,10 @@ export async function testDriverFirestoreAccess(uid) {
 
   const driverSnapshot = await getDoc(driverRef);
 
-  if (!driverSnapshot.exists() || driverSnapshot.data().connectionTest !== true) {
+  if (
+    !driverSnapshot.exists() ||
+    driverSnapshot.data().connectionTest !== true
+  ) {
     throw new Error('No se pudo verificar la lectura de Firestore.');
   }
 
@@ -31,7 +35,12 @@ export async function testDriverFirestoreAccess(uid) {
   return true;
 }
 
-export async function saveDriverRegistration(uid, personalData, vehicleData) {
+export async function saveDriverRegistration(
+  uid,
+  personalData,
+  vehicleData,
+  documentsData
+) {
   const driverRef = doc(db, 'drivers', uid);
 
   await setDoc(
@@ -39,6 +48,7 @@ export async function saveDriverRegistration(uid, personalData, vehicleData) {
     {
       personalData,
       vehicleData,
+      documentsData,
       updatedAt: serverTimestamp(),
     },
     { merge: true }
