@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Reglas de Firestore de UberClone Driver.
+// Se publican manualmente en Firebase Console (Firestore Database > Reglas).
+// Publicarlas reemplaza las reglas anteriores completas.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /drivers/{uid} {
+      // El conductor solo accede a su propio documento.
+      allow read: if isOwner(uid);
+
+      // Al crearlo, el estado de aprobación solo puede ser "pending".
+      allow create: if isOwner(uid)
+        && request.resource.data.approvalStatus == 'pending';
+
+      // approvalStatus no puede cambiarlo el conductor. Solo se permite:
+      // - fijar "pending" en documentos antiguos que aún no tienen el campo;
+      // - conservar el valor existente en cualquier otra actualización.
+      // El cambio a "approved" o "rejected" se hace desde Firebase Console,
+      // que no está sujeta a estas reglas.
+      allow update: if isOwner(uid) && (
+        (resource.data.get('approvalStatus', null) == null
+          && request.resource.data.approvalStatus == 'pending')
+        ||
+        (resource.data.get('approvalStatus', null) != null
+          && request.resource.data.approvalStatus == resource.data.approvalStatus)
+      );
+
+      allow delete: if false;
+    }
+  }
+}

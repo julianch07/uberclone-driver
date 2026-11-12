@@ -9,6 +9,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { APPROVAL_STATUS } from '../config/driverStatus';
 
 export async function testDriverFirestoreAccess(uid) {
   const driverRef = doc(db, 'drivers', uid);
@@ -43,12 +44,26 @@ export async function saveDriverRegistration(
 ) {
   const driverRef = doc(db, 'drivers', uid);
 
+  // El estado de aprobación solo se escribe cuando el documento aún no lo
+  // tiene. Después solo puede cambiarse desde Firebase Console (ver
+  // firestore.rules), de modo que guardar de nuevo no lo reinicia.
+  const existingSnapshot = await getDoc(driverRef);
+  const hasApprovalStatus =
+    existingSnapshot.exists() &&
+    existingSnapshot.data().approvalStatus !== undefined;
+
   await setDoc(
     driverRef,
     {
       personalData,
       vehicleData,
       documentsData,
+      ...(hasApprovalStatus
+        ? {}
+        : {
+            approvalStatus: APPROVAL_STATUS.PENDING,
+            approvalRequestedAt: serverTimestamp(),
+          }),
       updatedAt: serverTimestamp(),
     },
     { merge: true }
