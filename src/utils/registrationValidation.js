@@ -1,3 +1,4 @@
+
 // AI-assisted: see docs/AI_LOG.md #6
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -138,6 +139,66 @@ export function validateVehicleData(values) {
       errors.passengerCapacity =
         'Los vehículos XL deben tener capacidad mínima para 6 pasajeros.';
     }
+  }
+
+  return errors;
+}
+
+export function validateDocumentsPayments(values) {
+  const errors = {};
+
+  const requiredFields = [
+    'licenseNumber',
+    'licensePhoto',
+    'licenseExpiration',
+    'soatPhoto',
+    'soatExpiration',
+    'mercadoPagoEmail',
+  ];
+
+  requiredFields.forEach((field) => {
+    if (!String(values[field] || '').trim()) {
+      errors[field] = 'Este campo es obligatorio.';
+    }
+  });
+
+  const expirationFields = [
+    'licenseExpiration',
+    'soatExpiration',
+  ];
+
+  expirationFields.forEach((field) => {
+    if (values[field]) {
+      const expirationDate = new Date(values[field]);
+
+      if (Number.isNaN(expirationDate.getTime())) {
+        errors[field] = 'Selecciona una fecha válida.';
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const selectedDate = new Date(expirationDate);
+        selectedDate.setHours(0, 0, 0, 0);
+
+        if (selectedDate <= today) {
+          errors[field] =
+            'La fecha de vencimiento debe ser futura.';
+        }
+      }
+    }
+  });
+
+  if (
+    values.mercadoPagoEmail &&
+    !EMAIL_REGEX.test(values.mercadoPagoEmail.trim())
+  ) {
+    errors.mercadoPagoEmail =
+      'Ingresa un correo electrónico válido.';
+  }
+
+  if (!values.acceptedTerms) {
+    errors.acceptedTerms =
+      'Debes aceptar los términos y condiciones.';
   }
 
   return errors;
