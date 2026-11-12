@@ -71,9 +71,18 @@ uberclone-driver/
 
 ## Alcance de desarrollo
 
-La primera entrega se centra en los formularios de datos personales e información del vehículo del conductor, incluyendo validaciones y almacenamiento de la información en una base de datos.
+La aplicación implementa un proceso de registro de conductores dividido en tres secciones:
 
-Las funcionalidades se desarrollarán progresivamente de acuerdo con los requisitos académicos del proyecto.
+- **Datos personales:** información básica, fotografía, fecha de nacimiento, género e idioma.
+- **Vehículo:** fotografía, categoría, placa, marca, modelo, año, color y capacidad de pasajeros.
+- **Documentos y pagos:** licencia de conducción, SOAT, revisión técnico-mecánica cuando aplique, correo de Mercado Pago y aceptación de términos y condiciones.
+
+La aplicación utiliza Firebase Authentication con acceso anónimo, Firestore para almacenar y recuperar la información del conductor y Cloudinary para alojar las fotografías.
+
+El registro se asocia al identificador único del conductor autenticado y permite recuperar la información guardada al volver a abrir la aplicación.
+
+Las funcionalidades de operación de viajes, disponibilidad, ubicación, ganancias e historial se encuentran pendientes de desarrollo.
+
 
 ## Uso de IA
 
