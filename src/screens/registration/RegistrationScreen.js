@@ -1,5 +1,5 @@
 // AI-assisted: see docs/AI_LOG.md
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -30,6 +30,10 @@ import {
   validateVehicleData,
   validateDocumentsPayments,
 } from '../../utils/registrationValidation';
+import {
+  getSectionCompletion,
+  resolveStepNavigation,
+} from '../../utils/registrationNavigation';
 
 const REGISTRATION_STEPS = [
   {
@@ -236,41 +240,35 @@ export default function RegistrationScreen({ uid }) {
     setCurrentStep((previousStep) => previousStep + 1);
   };
 
+  const sectionCompletion = useMemo(
+    () => getSectionCompletion([personalData, vehicleData, documentsData]),
+    [personalData, vehicleData, documentsData]
+  );
+
   const handleStepPress = (targetStep) => {
     if (isSaving || targetStep === currentStep) {
       return;
     }
 
-    if (targetStep < currentStep) {
-      setCurrentStep(targetStep);
-      setErrors({});
+    const navigation = resolveStepNavigation(currentStep, targetStep, [
+      personalData,
+      vehicleData,
+      documentsData,
+    ]);
+
+    setErrors(navigation.errors);
+    setCurrentStep(navigation.step);
+
+    if (navigation.blockedStep !== null) {
+      setStatusType('error');
+      setStatusMessage(
+        `Completa la sección "${
+          REGISTRATION_STEPS[navigation.blockedStep].title
+        }" antes de continuar.`
+      );
+    } else {
       setStatusMessage('');
-      return;
     }
-
-    const personalDataErrors = validatePersonalData(personalData);
-
-    if (Object.keys(personalDataErrors).length > 0) {
-      setErrors(personalDataErrors);
-      setCurrentStep(0);
-      setStatusMessage('');
-      return;
-    }
-
-    if (targetStep === 2) {
-      const vehicleDataErrors = validateVehicleData(vehicleData);
-
-      if (Object.keys(vehicleDataErrors).length > 0) {
-        setErrors(vehicleDataErrors);
-        setCurrentStep(1);
-        setStatusMessage('');
-        return;
-      }
-    }
-
-    setErrors({});
-    setStatusMessage('');
-    setCurrentStep(targetStep);
   };
 
   const uploadImageIfNeeded = async (uri, publicId) => {
@@ -480,40 +478,60 @@ export default function RegistrationScreen({ uid }) {
       ) : null}
 
       <View style={styles.progressContainer}>
-        {REGISTRATION_STEPS.map((step, index) => (
-          <TouchableOpacity
-            key={step.id}
-            style={styles.stepContainer}
-            onPress={() => handleStepPress(index)}
-            disabled={isSaving}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[
-                styles.stepCircle,
-                index <= currentStep && styles.activeStepCircle,
-              ]}
+        {REGISTRATION_STEPS.map((step, index) => {
+          const isCurrent = index === currentStep;
+          const isComplete = sectionCompletion[index];
+
+          return (
+            <TouchableOpacity
+              key={step.id}
+              style={styles.stepContainer}
+              onPress={() => handleStepPress(index)}
+              disabled={isSaving}
+              activeOpacity={0.7}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isCurrent, disabled: isSaving }}
+              accessibilityLabel={`${step.title}, ${
+                isComplete ? 'completa' : 'incompleta'
+              }`}
             >
-              <Text
+              <View
                 style={[
-                  styles.stepNumber,
-                  index <= currentStep && styles.activeStepNumber,
+                  styles.stepCircle,
+                  isComplete && styles.completedStepCircle,
+                  isCurrent && styles.activeStepCircle,
                 ]}
               >
-                {step.id}
-              </Text>
-            </View>
+                <Text
+                  style={[
+                    styles.stepNumber,
+                    (isComplete || isCurrent) && styles.activeStepNumber,
+                  ]}
+                >
+                  {isComplete && !isCurrent ? '✓' : step.id}
+                </Text>
+              </View>
 
-            <Text
-              style={[
-                styles.stepTitle,
-                index === currentStep && styles.activeStepTitle,
-              ]}
-            >
-              {step.title}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.stepTitle,
+                  isCurrent && styles.activeStepTitle,
+                ]}
+              >
+                {step.title}
+              </Text>
+
+              <Text
+                style={[
+                  styles.stepStatus,
+                  isComplete && styles.stepStatusComplete,
+                ]}
+              >
+                {isComplete ? 'Completa' : 'Incompleta'}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={styles.card}>
@@ -710,6 +728,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  completedStepCircle: {
+    backgroundColor: '#16803C',
+  },
   activeStepCircle: {
     backgroundColor: '#276EF1',
   },
@@ -726,6 +747,15 @@ const styles = StyleSheet.create({
     color: '#888',
     marginTop: 8,
     textAlign: 'center',
+  },
+  stepStatus: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 2,
+  },
+  stepStatusComplete: {
+    color: '#16803C',
+    fontWeight: '700',
   },
   activeStepTitle: {
     color: '#141414',
