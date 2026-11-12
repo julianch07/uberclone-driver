@@ -20,6 +20,12 @@ import {
 } from '../../services/firestoreService';
 
 import {
+  APPROVAL_STATUS,
+  APPROVAL_STATUS_INFO,
+  getApprovalStatus,
+} from '../../config/driverStatus';
+
+import {
   validatePersonalData,
   validateVehicleData,
   validateDocumentsPayments,
@@ -97,6 +103,8 @@ export default function RegistrationScreen({ uid }) {
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState('');
+  const [approvalStatus, setApprovalStatus] = useState(null);
+  const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -108,6 +116,8 @@ export default function RegistrationScreen({ uid }) {
         if (!isMounted || !registration) {
           return;
         }
+
+        setApprovalStatus(getApprovalStatus(registration));
 
         setPersonalData({
           ...INITIAL_PERSONAL_DATA,
@@ -361,6 +371,13 @@ export default function RegistrationScreen({ uid }) {
       setVehicleData(updatedVehicleData);
       setDocumentsData(updatedDocumentsData);
 
+      try {
+        const savedRegistration = await getDriverRegistration(uid);
+        setApprovalStatus(getApprovalStatus(savedRegistration));
+      } catch (statusError) {
+        console.error('Error al leer el estado de aprobación:', statusError);
+      }
+
       setStatusType('success');
       setStatusMessage(
         '¡Tu registro se guardó correctamente!'
@@ -375,6 +392,25 @@ export default function RegistrationScreen({ uid }) {
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRefreshApprovalStatus = async () => {
+    if (isRefreshingStatus) {
+      return;
+    }
+
+    setIsRefreshingStatus(true);
+
+    try {
+      const registration = await getDriverRegistration(uid);
+      setApprovalStatus(getApprovalStatus(registration));
+    } catch (error) {
+      console.error('Error al actualizar el estado de aprobación:', error);
+      setStatusType('error');
+      setStatusMessage('No se pudo actualizar el estado. Inténtalo nuevamente.');
+    } finally {
+      setIsRefreshingStatus(false);
     }
   };
 
@@ -412,6 +448,36 @@ export default function RegistrationScreen({ uid }) {
       <Text style={styles.subtitle}>
         Completa los siguientes pasos para registrar tu información.
       </Text>
+
+      {approvalStatus ? (
+        <View
+          style={[
+            styles.approvalBanner,
+            approvalStatus === APPROVAL_STATUS.APPROVED &&
+              styles.approvalBannerApproved,
+            approvalStatus === APPROVAL_STATUS.REJECTED &&
+              styles.approvalBannerRejected,
+          ]}
+        >
+          <Text style={styles.approvalLabel}>
+            Estado: {APPROVAL_STATUS_INFO[approvalStatus].label}
+          </Text>
+          <Text style={styles.approvalMessage}>
+            {APPROVAL_STATUS_INFO[approvalStatus].message}
+          </Text>
+          <TouchableOpacity
+            onPress={handleRefreshApprovalStatus}
+            disabled={isRefreshingStatus}
+            activeOpacity={0.7}
+          >
+            {isRefreshingStatus ? (
+              <ActivityIndicator size="small" color="#276EF1" />
+            ) : (
+              <Text style={styles.approvalRefresh}>Actualizar estado</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <View style={styles.progressContainer}>
         {REGISTRATION_STEPS.map((step, index) => (
@@ -592,6 +658,39 @@ const styles = StyleSheet.create({
     color: '#686868',
     lineHeight: 22,
     marginTop: 8,
+  },
+  approvalBanner: {
+    marginTop: 20,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: '#FFF4D6',
+    borderWidth: 1,
+    borderColor: '#F2D27A',
+  },
+  approvalBannerApproved: {
+    backgroundColor: '#E3F6EA',
+    borderColor: '#9BD3AE',
+  },
+  approvalBannerRejected: {
+    backgroundColor: '#FDE7E5',
+    borderColor: '#F1A9A3',
+  },
+  approvalLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#141414',
+  },
+  approvalMessage: {
+    fontSize: 13,
+    color: '#444',
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  approvalRefresh: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#276EF1',
   },
   progressContainer: {
     flexDirection: 'row',
