@@ -287,3 +287,19 @@ La inteligencia artificial se utilizó como herramienta de apoyo durante el desa
 - **Commit:** Pendiente de crear en la rama `fix/bloqueo-recuperacion-viaje`.
 - **Verificación:** Se ejecutó `npm run test:all` con 64 pruebas unitarias, 1 prueba de integración y 69 pruebas de reglas de Firestore: **134 aprobadas y 0 fallidas**. Las cinco pruebas nuevas verifican la vigencia de las reconciliaciones y su invalidación ante cambios de conductor, operaciones posteriores, selección de otro viaje o desmontaje del contexto. Durante las pruebas negativas de seguridad aparecieron mensajes `PERMISSION_DENIED` y errores de evaluación de reglas, pendientes de investigación. Falta comprobar manualmente en Expo Go que finalizar un viaje permita regresar a la recepción de solicitudes sin bloquear la interfaz.
 - **Aprendizaje:** La cancelación de una suscripción no necesariamente debe cancelar las operaciones asíncronas que inició. Separar sus ciclos de vida y validar la identidad y versión de cada operación ayuda a prevenir condiciones de carrera y estados de carga indefinidos.
+
+### Entrada #20
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT (OpenAI).
+- **Objetivo:** Implementar un temporizador de 20 segundos para aceptar solicitudes de viaje, evitando que el conductor acepte solicitudes después de agotarse el tiempo.
+- **Prompt:** Incorporar una cuenta regresiva de 20 segundos en las solicitudes pendientes de UberClone Driver, mostrar el tiempo restante, ocultar las solicitudes vencidas y evitar que las actualizaciones de Firestore reinicien el contador, conservando la funcionalidad existente.
+- **Resumen de la respuesta:** Se implementó una utilidad para calcular el tiempo restante y determinar cuándo expira una solicitud. Se integró un contador visible en `TripRequests.js`, actualizado periódicamente, que oculta las solicitudes al agotarse los 20 segundos. Se incorporó una validación adicional antes de aceptar un viaje y se conservaron los tiempos iniciales de cada solicitud para evitar reinicios por actualizaciones de Firestore.
+- **Qué se usó / modificó / descartó:** Se reutilizaron React Hooks, el componente de solicitudes y la suscripción existente a Firestore. La expiración se implementó localmente, sin cancelar ni modificar automáticamente los documentos de viajes pendientes en Firestore. No se añadieron dependencias ni se modificaron las reglas de seguridad.
+- **Archivos creados:** `src/utils/tripRequestTimer.js` y `tests/tripRequestTimer.test.cjs`.
+- **Archivos modificados:** `src/components/trips/TripRequests.js` y `docs/AI_LOG.md`.
+- **Commit:** Pendiente de crear en la rama `feat/temporizador-solicitudes`.
+- **Verificación:** Se ejecutaron 139 pruebas automatizadas con `node --test tests/*.test.cjs`, todas aprobadas y ninguna fallida. Las cinco pruebas nuevas verifican el inicio, la disminución, la expiración y los límites del contador. Se ejecutó `npx expo export --platform ios` correctamente, generando el bundle de iOS con 735 módulos. En Expo Go se comprobó manualmente que una solicitud pendiente muestra la cuenta regresiva y desaparece después de 20 segundos.
+- **Limitaciones:** El temporizador comienza cuando el dispositivo observa la solicitud y no está sincronizado entre conductores ni respaldado por una fecha de expiración del servidor. Al reiniciar la aplicación, el plazo local puede comenzar nuevamente. Las solicitudes expiradas permanecen pendientes en Firestore hasta que otro proceso cambie su estado.
+- **Aprendizaje:** Separar la lógica temporal en funciones puras facilita las pruebas. Conservar la primera aparición de cada solicitud evita que las actualizaciones en tiempo real reinicien el contador. Para una solución de producción, la expiración debe controlarse también desde el servidor.
