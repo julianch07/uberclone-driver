@@ -1,6 +1,7 @@
 // AI-assisted: see docs/AI_LOG.md #15
 import {
   collection,
+  doc,
   limit,
   onSnapshot,
   query,
@@ -41,4 +42,28 @@ export function subscribeToPendingTrips(onData, onError) {
 
 export async function acceptTrip(tripId, driverId, database = db) {
   return acceptTripWithDatabase(database, tripId, driverId);
+}
+
+
+// AI-assisted: see docs/AI_LOG.md #16
+export function subscribeToActiveTrip(tripId, onData, onError) {
+  const tripRef = doc(db, 'trips', tripId);
+
+  return onSnapshot(
+    tripRef,
+    (snapshot) => {
+      onData(
+        snapshot.exists()
+          ? { id: snapshot.id, ...snapshot.data() }
+          : null
+      );
+    },
+    (error) => {
+      console.error('Error al sincronizar el viaje activo:', error);
+
+      if (onError) {
+        onError(error);
+      }
+    }
+  );
 }

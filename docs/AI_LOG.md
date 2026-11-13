@@ -230,3 +230,17 @@ La inteligencia artificial se utilizó como herramienta de apoyo durante el desa
 - **Commit:** Pendiente de crear.
 - **Verificación:** Se ejecutaron 47 pruebas unitarias, 1 prueba de integración de aceptación de viajes y 55 pruebas de reglas de seguridad de Firestore: 103 aprobadas y 0 fallidas. La prueba de integración utilizó Firestore Emulator. Se ejecutó `npx expo export --platform ios` y se generó correctamente el bundle de iOS con 729 módulos y un tamaño de 3,5 MB. `git diff --check` terminó sin observaciones. Durante algunas pruebas negativas de seguridad aparecieron mensajes `PERMISSION_DENIED` y errores de evaluación de reglas; las pruebas verificaron los rechazos esperados, pero esos mensajes de evaluación quedan pendientes de investigación. No se considera verificado el despliegue de las nuevas reglas en Firebase de producción.
 - **Aprendizaje:** Las transacciones permiten evitar que dos conductores acepten simultáneamente una misma solicitud. La seguridad de los viajes debe protegerse en Firestore y no depender exclusivamente de las validaciones de la interfaz. La separación entre componentes, servicios y funciones puras facilita el mantenimiento y las pruebas del módulo.
+
+### Entrada #16
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT
+- **Objetivo:** Implementar Context API para centralizar el estado del conductor y gestionar la recuperación de viajes activos.
+- **Prompt:** Solicité continuar el desarrollo de UberClone Driver mediante la implementación de Context API, integrando el estado de conexión del conductor, los viajes aceptados y su persistencia.
+- **Resumen de la respuesta:** Se implementó DriverContext mediante React Context API, con estados para conexión, viaje activo, carga y errores. Se integró AsyncStorage para conservar el identificador del viaje aceptado y una suscripción a Firestore para sincronizar su información. Se conectó el contexto con App.js, DriverHomeScreen y TripRequests. También se incorporó una función para validar que un viaje activo pertenezca al conductor autenticado.
+- **Archivos creados:** `src/context/DriverContext.js`, `src/utils/activeTripLogic.js` y `tests/activeTripLogic.test.cjs`.
+- **Archivos modificados:** `App.js`, `src/screens/home/DriverHomeScreen.js`, `src/components/trips/TripRequests.js`, `src/services/tripService.js` y `package.json`.
+- **Pruebas:** 52 pruebas unitarias aprobadas, incluyendo cinco nuevas para validar viajes activos. También se ejecutaron previamente una prueba de integración y 55 pruebas de reglas de Firestore, todas satisfactorias. La exportación iOS se completó correctamente.
+- **Limitaciones:** Queda pendiente verificar manualmente la recuperación del viaje después de reiniciar la aplicación y probar específicamente los fallos de AsyncStorage y de sincronización con Firestore.
+- **Commit:** Pendiente.

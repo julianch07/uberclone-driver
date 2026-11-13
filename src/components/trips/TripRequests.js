@@ -1,5 +1,7 @@
 // AI-assisted: see docs/AI_LOG.md #15
+// AI-assisted: see docs/AI_LOG.md #16
 import { useEffect, useState } from 'react';
+import { useDriverContext } from '../../context/DriverContext';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -14,6 +16,15 @@ import {
 } from '../../services/tripService';
 
 export default function TripRequests({ uid, enabled }) {
+  const {
+    activeTrip,
+    activeTripId,
+    activeTripLoading,
+    activeTripError,
+    rememberAcceptedTrip,
+  } = useDriverContext();
+
+  const hasActiveTrip = Boolean(activeTripId);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
   const [acceptingId, setAcceptingId] = useState(null);
@@ -21,7 +32,7 @@ export default function TripRequests({ uid, enabled }) {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || hasActiveTrip || activeTripLoading) {
       setTrips([]);
       setLoading(false);
       setError('');
@@ -43,10 +54,12 @@ export default function TripRequests({ uid, enabled }) {
     );
 
     return unsubscribe;
-  }, [enabled]);
+  }, [enabled, hasActiveTrip, activeTripLoading]);
 
   const handleAccept = async (tripId) => {
-    if (!enabled || acceptingId) return;
+    if (!enabled || acceptingId || hasActiveTrip || activeTripLoading) {
+      return;
+    }
 
     setAcceptingId(tripId);
     setError('');
@@ -54,7 +67,14 @@ export default function TripRequests({ uid, enabled }) {
 
     try {
       await acceptTrip(tripId, uid);
-      setMessage('¡Viaje aceptado correctamente!');
+
+      const saved = await rememberAcceptedTrip(tripId);
+
+      setMessage(
+        saved
+          ? '¡Viaje aceptado correctamente!'
+          : 'Viaje aceptado, pero no se pudo guardar localmente.'
+      );
     } catch (acceptError) {
       setError(
         acceptError.message || 'No fue posible aceptar este viaje.'
@@ -63,6 +83,56 @@ export default function TripRequests({ uid, enabled }) {
       setAcceptingId(null);
     }
   };
+
+  if (hasActiveTrip || activeTripLoading) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.title}>
+          {activeTrip
+            ? 'Viaje asignado'
+            : activeTripError
+              ? 'No se pudo consultar el viaje'
+              : 'Recuperando viaje activo...'}
+        </Text>
+
+        {activeTripLoading ? (
+          <ActivityIndicator size="large" color="#276EF1" />
+        ) : null}
+
+        {activeTrip ? (
+          <>
+            <Text style={styles.label}>ESTADO</Text>
+            <Text style={styles.value}>
+              {activeTrip.status === 'accepted'
+                ? 'Aceptado'
+                : 'En curso'}
+            </Text>
+
+            <Text style={styles.label}>ORIGEN</Text>
+            <Text style={styles.value}>
+              {activeTrip.pickup?.address || 'No disponible'}
+            </Text>
+
+            <Text style={styles.label}>DESTINO</Text>
+            <Text style={styles.value}>
+              {activeTrip.destination?.address || 'No disponible'}
+            </Text>
+
+            <Text style={styles.label}>TARIFA ESTIMADA</Text>
+            <Text style={styles.fare}>
+              {typeof activeTrip.estimatedFare === 'number'
+                ? `$${activeTrip.estimatedFare.toLocaleString('es-CO')}`
+                : 'Por confirmar'}
+            </Text>
+          </>
+        ) : null}
+
+        {activeTripError ? (
+          <Text style={styles.error}>{activeTripError}</Text>
+        ) : null}
+      </View>
+    );
+  }
 
   if (!enabled) {
     return (
@@ -85,6 +155,9 @@ export default function TripRequests({ uid, enabled }) {
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {activeTripError ? (
+        <Text style={styles.error}>{activeTripError}</Text>
+      ) : null}
       {message ? <Text style={styles.success}>{message}</Text> : null}
 
       {!loading && !error && trips.length === 0 ? (
