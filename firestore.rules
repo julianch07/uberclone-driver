@@ -193,32 +193,39 @@ service cloud.firestore {
         && validCoordinate(location.get('longitude', null), 180);
     }
 
+    // AI-assisted: see docs/AI_LOG.md #17
     function driverCanAcceptTrip(uid) {
+      let driverPath = /databases/$(database)/documents/drivers/$(uid);
+      let driver = get(driverPath).data;
+
       return request.auth != null
         && request.auth.uid == uid
-        && exists(/databases/$(database)/documents/drivers/$(uid))
-        && approvedAndRegistered(
-          get(/databases/$(database)/documents/drivers/$(uid)).data
-        )
-        && get(/databases/$(database)/documents/drivers/$(uid))
-          .data.get('isOnline', false) == true
-        && get(/databases/$(database)/documents/drivers/$(uid))
-          .data.documentsData.licenseExpiration is string
-        && get(/databases/$(database)/documents/drivers/$(uid))
-          .data.documentsData.soatExpiration is string
+        && exists(driverPath)
+        && driver.get('approvalStatus', null) == 'approved'
+        && driver.get('registrationCompletedAt', null) is timestamp
+        && driver.get('personalData', null) is map
+        && driver.personalData.get('fullName', null) is string
+        && driver.personalData.fullName.size() > 0
+        && driver.get('vehicleData', null) is map
+        && driver.vehicleData.get('plate', null) is string
+        && driver.vehicleData.plate.matches('^[A-Z]{3}[0-9]{3}$')
+        && driver.get('documentsData', null) is map
+        && driver.documentsData.get('acceptedTerms', null) == true
+        && driver.get('isOnline', false) == true
+        && driver.documentsData.licenseExpiration is string
+        && driver.documentsData.soatExpiration is string
         && timestamp.value(
-          get(/databases/$(database)/documents/drivers/$(uid))
-            .data.documentsData.licenseExpiration
+          driver.documentsData.licenseExpiration
         ) > request.time
         && timestamp.value(
-          get(/databases/$(database)/documents/drivers/$(uid))
-            .data.documentsData.soatExpiration
+          driver.documentsData.soatExpiration
         ) > request.time;
     }
 
     function validTripAcceptance() {
       return request.auth != null
         && resource.data.get('status', null) == 'pending'
+        && request.resource.data.get('status', null) == 'accepted'
         && resource.data.get('driverId', 'missing') == null
         && validTripLocation(resource.data.get('pickup', null))
         && validTripLocation(resource.data.get('destination', null))
@@ -229,6 +236,61 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data)
           .affectedKeys().hasOnly(['status', 'driverId'])
         && driverCanAcceptTrip(request.auth.uid);
+    }
+
+    // AI-assisted: see docs/AI_LOG.md #17
+    function validTripLifecycleTransition() {
+      return request.auth != null
+        && (
+          (
+            resource.data.get('status', null) == 'accepted'
+            && request.resource.data.get('status', null)
+              in ['in_progress', 'cancelled']
+          )
+          ||
+          (
+            resource.data.get('status', null) == 'in_progress'
+            && request.resource.data.get('status', null) == 'completed'
+          )
+        )
+        && resource.data.get('status', null) in [
+          'accepted', 'in_progress'
+        ]
+        && resource.data.get('driverId', null) == request.auth.uid
+        && validTripLocation(resource.data.get('pickup', null))
+        && validTripLocation(resource.data.get('destination', null))
+        && resource.data.get('estimatedFare', null) is number
+        && resource.data.estimatedFare >= 0
+        && request.resource.data.get('driverId', null)
+          == resource.data.get('driverId', null)
+        && (
+          (
+            resource.data.get('status', null) == 'accepted'
+            && request.resource.data.get('status', null) == 'in_progress'
+            && resource.data.get('startedAt', null) == null
+            && request.resource.data.get('startedAt', null) == request.time
+            && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'startedAt'])
+          )
+          ||
+          (
+            resource.data.get('status', null) == 'in_progress'
+            && request.resource.data.get('status', null) == 'completed'
+            && resource.data.get('completedAt', null) == null
+            && request.resource.data.get('completedAt', null) == request.time
+            && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'completedAt'])
+          )
+          ||
+          (
+            resource.data.get('status', null) == 'accepted'
+            && request.resource.data.get('status', null) == 'cancelled'
+            && resource.data.get('cancelledAt', null) == null
+            && request.resource.data.get('cancelledAt', null) == request.time
+            && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'cancelledAt'])
+          )
+        );
     }
 
     match /trips/{tripId} {
@@ -249,8 +311,17 @@ service cloud.firestore {
         && request.query.limit != null
         && request.query.limit <= 20;
 
+      // AI-assisted: see docs/AI_LOG.md #17
       allow update: if request.auth != null
+        && resource.data.get('status', null) == 'pending'
+        && request.resource.data.get('status', null) == 'accepted'
         && validTripAcceptance();
+
+      allow update: if request.auth != null
+        && resource.data.get('status', null) in [
+          'accepted', 'in_progress'
+        ]
+        && validTripLifecycleTransition();
     }
 
     match /driverLocations/{uid} {
