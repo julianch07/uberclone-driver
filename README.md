@@ -106,9 +106,50 @@ Limitaciones conocidas:
 
 - El plazo de 20 segundos se controla en el dispositivo; las solicitudes vencidas siguen pendientes en Firestore.
 - El historial consulta un máximo de 50 viajes finalizados.
+- La distancia y la duración de cada viaje deben venir en el documento de la solicitud (`distanceKm`, `durationMin`); la consulta a Google Distance Matrix al crear la solicitud no está integrada.
 - El servicio público de OSRM es adecuado para pruebas, pero no garantiza disponibilidad en producción.
 - La configuración nativa de Google Maps en un *development build* está pendiente.
 
+
+## Tarifas y comisiones
+
+Los parámetros están centralizados en `src/config/pricing.js` (valores didácticos de la guía, en pesos colombianos enteros):
+
+| Parámetro | Valor |
+|---|---|
+| Tarifa base | 3.500 COP |
+| Valor por kilómetro | 1.200 COP |
+| Valor por minuto | 250 COP |
+| Tarifa mínima | 6.000 COP |
+| Multiplicador Económico / XL / Premium | 1,0 / 1,4 / 1,8 |
+| Comisión de la plataforma | 20 % de la tarifa |
+| Propina | 100 % para el conductor |
+
+La función pura `calculateFare({ distanceKm, durationMin, category, tip })` de `src/utils/fareLogic.js` calcula `(base + km × 1.200 + min × 250) × multiplicador`, redondea al múltiplo de 100 COP más cercano, aplica la tarifa mínima y devuelve `fare`, `commission`, `driverEarnings` y el detalle del cálculo. Ejemplo de la guía (8,5 km y 22 min): Económico 19.200 / 3.840 / 15.360 COP; XL 26.900 / 5.380 / 21.520 COP.
+
+Al finalizar un viaje se guardan `fare`, `commission`, `commissionRate`, `driverEarnings`, `tip` y `fareSource`:
+
+- `fareSource: "calculated"`: el viaje tiene `distanceKm`, `durationMin` y `category` válidos y la tarifa se calcula con `calculateFare()`.
+- `fareSource: "estimated"`: el viaje no tiene esos datos (viajes anteriores a este módulo) y la tarifa es `estimatedFare`, sin recalcular ni inventar recorridos.
+
+`firestore.rules` recalcula la tarifa con la misma fórmula y rechaza cualquier desglose que no coincida, por lo que el conductor no puede alterar su tarifa, la comisión, su ganancia ni la propina. Si se cambia `src/config/pricing.js`, hay que actualizar también las funciones de tarifa de `firestore.rules`.
+
+### Documento de viaje de prueba
+
+No existe aplicación de pasajero: las solicitudes se crean como documentos en la colección `trips` de Firestore.
+
+| Campo | Tipo | Ejemplo |
+|---|---|---|
+| `status` | string | `pending` |
+| `driverId` | null | `null` |
+| `pickup` | map | `{ address: "Parque de Berrío", latitude: 6.2518, longitude: -75.5636 }` |
+| `destination` | map | `{ address: "Estadio", latitude: 6.2565, longitude: -75.5905 }` |
+| `distanceKm` | number | `8.5` |
+| `durationMin` | number | `22` |
+| `category` | string | `economy`, `xl` o `premium` (también `Económico`, `XL`, `Premium`) |
+| `estimatedFare` | number | Resultado de `calculateFare()` para los valores anteriores, por ejemplo `19200` |
+| `tip` | number (entero, opcional) | `0` |
+| `createdAt` | timestamp | Fecha de creación |
 
 ## Ubicación GPS y Google Maps
 

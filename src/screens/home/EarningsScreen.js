@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 import { getDriverTripHistory } from '../../services/tripService';
-import { calculateFareBreakdown, formatCurrency } from '../../utils/fareLogic';
+// AI-assisted: see docs/AI_LOG.md #27
+import { formatCurrency, getTripEarnings } from '../../utils/fareLogic';
 import { TRIP_STATUS } from '../../utils/tripLogic';
 
 export default function EarningsScreen({ uid }) {
@@ -32,11 +33,14 @@ export default function EarningsScreen({ uid }) {
         let driverEarnings = 0;
         let commission = 0;
 
+        // AI-assisted: see docs/AI_LOG.md #27
+        // Desglose guardado al finalizar; en viajes antiguos, comisión
+        // vigente sobre estimatedFare (getTripEarnings).
         completedTrips.forEach(trip => {
-          const breakdown = calculateFareBreakdown(trip.estimatedFare || 0);
-          totalFare += breakdown.totalFare;
+          const breakdown = getTripEarnings(trip);
+          totalFare += breakdown.fare;
           driverEarnings += breakdown.driverEarnings;
-          commission += breakdown.uberCloneCommission;
+          commission += breakdown.commission;
         });
 
         setTotals({ totalFare, driverEarnings, commission });
@@ -96,7 +100,8 @@ export default function EarningsScreen({ uid }) {
         data={trips}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
-          const breakdown = calculateFareBreakdown(item.estimatedFare || 0);
+          // AI-assisted: see docs/AI_LOG.md #27
+          const breakdown = getTripEarnings(item);
           return (
             <View style={styles.tripItem}>
               <View>
@@ -112,7 +117,10 @@ export default function EarningsScreen({ uid }) {
                   {formatCurrency(breakdown.driverEarnings)}
                 </Text>
                 <Text style={styles.totalText}>
-                  Total: {formatCurrency(breakdown.totalFare)}
+                  Total: {formatCurrency(breakdown.fare)}
+                  {breakdown.tip > 0
+                    ? ` · Propina: ${formatCurrency(breakdown.tip)}`
+                    : ''}
                 </Text>
               </View>
             </View>

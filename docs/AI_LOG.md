@@ -389,12 +389,202 @@
 - **Verificación:** `npm run test:all` con el emulador local: 79 pruebas unitarias, 11 de integración y 77 de reglas, **167 aprobadas y 0 fallidas**; las pruebas de reglas compilan `firestore.rules` con los comentarios nuevos. `npx expo-doctor`: 20/20 comprobaciones superadas. `npx expo export --platform ios`: bundle generado (987 módulos). `git diff --check` sin observaciones. Un análisis automático del diff confirmó que en los archivos de código solo cambiaron comentarios.
 - **Aprendizaje:** La trazabilidad se pierde cuando un commit posterior sustituye referencias existentes o cuando una entrada no registra su commit. Cruzar cada archivo con los commits que lo modificaron y con las entradas de la bitácora permite detectar estas omisiones sin depender de la memoria del desarrollo.
 
+### Entrada #27
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Implementar el módulo de tarifas y comisiones de la guía (sección 5): configuración centralizada, función pura `calculateFare`, desglose guardado al finalizar cada viaje, protección en `firestore.rules` y pruebas.
+- **Prompt (texto literal):**
+
+```text
+# UberClone Driver — Implementación del módulo de tarifas y comisiones
+
+Actúa como desarrollador senior de React Native, Expo, JavaScript y Firebase, con experiencia en lógica financiera, pruebas automatizadas y seguridad de Firestore.
+
+## Contexto
+
+Estamos desarrollando UberClone Driver para una entrega universitaria. El proyecto utiliza:
+
+- Expo SDK 58, React Native y JavaScript, sin TypeScript.
+- Firebase Authentication anónima.
+- Cloud Firestore.
+- Cloudinary.
+- Navegación y flujo de viajes ya implementados.
+- Pruebas unitarias, de integración y reglas de Firestore.
+- Documentación de IA en `docs/AI_LOG.md`.
+
+La rama de trabajo será `feat/tarifas-comisiones`, creada previamente por mí.
+
+La rama principal ya contiene los PR #23 y #24.
+
+## Reglas obligatorias
+
+1. Trabaja exclusivamente sobre la rama actual. Verifica que sea `feat/tarifas-comisiones`.
+2. NO ejecutes `git commit`, `git push`, `git merge`, `git rebase`, `gh pr create` ni otras operaciones de publicación.
+3. No cambies de rama ni crees ramas.
+4. No añadas `Co-Authored-By` ni mensajes automáticos de autoría.
+5. No modifiques `.env` ni expongas credenciales.
+6. No despliegues reglas, índices ni servicios Firebase.
+7. No reescribas los módulos existentes si pueden ampliarse.
+8. Mantén compatibilidad con los documentos de viajes ya guardados.
+9. Usa exclusivamente JavaScript.
+10. Documenta la asistencia de IA en `docs/AI_LOG.md` y agrega comentarios `AI-assisted` donde corresponda.
+11. Puedes crear y modificar archivos, instalar dependencias estrictamente necesarias y ejecutar pruebas.
+12. No avances al módulo de solicitudes o pagos. Debes entregar únicamente el módulo de tarifas y comisiones.
+
+## Objetivo principal
+
+Implementar completamente el sistema de cálculo de tarifas exigido por la guía docente, integrándolo con el flujo actual de viajes y las ganancias del conductor.
+
+### 1. Configuración de precios
+
+Crear `src/config/pricing.js` con los valores:
+
+- Tarifa base: 3.500 COP.
+- Precio por kilómetro: 1.200 COP.
+- Precio por minuto: 250 COP.
+- Tarifa mínima: 6.000 COP.
+- Económico: multiplicador 1.0.
+- XL: multiplicador 1.4.
+- Premium: multiplicador 1.8.
+- Comisión de plataforma: 20%.
+- Propina: 100% para el conductor.
+- Redondeo de la tarifa al múltiplo de 100 COP más cercano.
+
+Utiliza constantes claras y centralizadas.
+
+### 2. Calculadora pura de tarifas
+
+Crear una función `calculateFare({ distanceKm, durationMin, category, tip })`.
+
+Debe:
+
+- Validar los parámetros recibidos.
+- Calcular el precio usando la tarifa base, kilómetros, minutos y multiplicador de categoría.
+- Aplicar la tarifa mínima y el redondeo exigidos.
+- Calcular la comisión del 20% únicamente sobre la tarifa, excluyendo la propina.
+- Calcular la ganancia neta del conductor incluyendo el 100% de la propina.
+- Devolver un objeto consistente y fácil de utilizar en toda la aplicación.
+
+Revisar la guía original y comprobar sus ejemplos:
+
+- Económico: tarifa 19.200 COP, comisión 3.840 COP, neto 15.360 COP.
+- XL: tarifa 26.900 COP, comisión 5.380 COP, neto 21.520 COP.
+
+Si los ejemplos presentan ambigüedades de distancia, duración o redondeo, documenta las diferencias; no fuerces resultados incorrectos.
+
+### 3. Integración con el código existente
+
+Audita antes de modificar:
+
+- `src/utils/fareLogic.js`
+- `src/services/tripService.js`
+- `src/utils/tripLogic.js`
+- `src/utils/tripLifecycle.js`
+- `src/screens/home/EarningsScreen.js`
+- `src/screens/home/DriverHomeScreen.js`
+- `firestore.rules`
+- Pruebas existentes.
+
+Reutiliza lo que ya funciona.
+
+No cambies innecesariamente el ciclo de estados del viaje.
+
+Cuando se complete un viaje, debe quedar guardado un desglose coherente que incluya:
+
+- `fare`
+- `commission`
+- `commissionRate`
+- `driverEarnings`
+- `tip`
+
+Conserva compatibilidad con `estimatedFare` y con los viajes antiguos.
+
+Define explícitamente cómo se obtiene una tarifa final si no existen distancia y duración verificadas; no inventes recorridos ni tiempos. Para datos históricos incompletos, usa una estrategia de compatibilidad documentada.
+
+### 4. Seguridad y consistencia
+
+Revisa que un conductor no pueda alterar arbitrariamente la tarifa, la comisión o sus ganancias mediante escrituras directas en Firestore.
+
+Si necesitas modificar `firestore.rules`, hazlo localmente y agrega pruebas.
+
+No publiques las reglas. Si la seguridad requiere un backend o una operación privilegiada que todavía no existe, señala esa dependencia y no presentes como seguro un cálculo exclusivamente del cliente.
+
+Evita que la misma finalización de viaje duplique cobros o ganancias.
+
+### 5. Pruebas obligatorias
+
+Implementa pruebas para:
+
+- Tarifa mínima.
+- Redondeo.
+- Cada categoría.
+- Comisión del 20%.
+- Propina completa para el conductor.
+- Distancias y tiempos cero.
+- Entradas inválidas.
+- Compatibilidad con viajes antiguos.
+- Persistencia del desglose.
+- Reglas Firestore modificadas.
+- Reintentos de finalización del viaje.
+
+Después ejecuta:
+
+- Todas las pruebas existentes.
+- `npx expo-doctor`.
+- `npx expo export --platform ios`.
+- `git diff --check`.
+
+No ocultes fallos. Si alguna prueba no puede ejecutarse, explica por qué.
+
+## Entrega final
+
+Al terminar, presenta:
+
+1. Resumen de lo implementado.
+2. Archivos creados y modificados.
+3. Decisiones técnicas y compatibilidad.
+4. Resultado exacto de cada conjunto de pruebas.
+5. Cambios en reglas Firestore y necesidad de despliegue.
+6. Riesgos o limitaciones pendientes.
+7. Comandos sugeridos para que yo revise los cambios.
+8. Confirmación de que NO realizaste commits, push, PR, merge ni despliegues.
+
+No avances al módulo 2.
+
+Quiero un módulo completo, coherente, probado e integrado con el proyecto existente, no una demostración aislada.
+
+ Importante: No existe una aplicación de pasajero y no debes crearla. Las solicitudes de viaje se simularán mediante documentos de prueba en Firestore. En este módulo concéntrate únicamente en tarifas y comisiones. Si encuentras dependencias relacionadas con solicitudes o pagos, documéntalas para los siguientes módulos sin implementarlas todavía.
+```
+
+- **Resumen de la respuesta:** Se creó `src/config/pricing.js` y se amplió `src/utils/fareLogic.js` con `calculateFare`, que usa aritmética entera y reproduce los ejemplos de la guía sin ambigüedades (Económico 19.200 / 3.840 / 15.360 y XL 26.880 → 26.900 / 5.380 / 21.520). Al finalizar un viaje se guarda el desglose en la misma transacción y `firestore.rules` lo recalcula con la misma fórmula, rechazando cualquier valor alterado. La finalización es idempotente ante reintentos y ante dos finalizaciones simultáneas.
+- **Qué se usó / modificó / descartó:**
+  - Se reutilizaron `calculateFareBreakdown`, `COMMISSIONS` y `formatCurrency` (ahora basados en la misma comisión) y el ciclo de estados existente, sin estados nuevos.
+  - Estrategia de tarifa final: si el documento del viaje tiene `distanceKm`, `durationMin` y `category` válidos, se usa `calculateFare` (`fareSource: "calculated"`). Si no, se conserva `estimatedFare` sin recalcular, redondear ni inventar recorridos (`fareSource: "estimated"`). Los viajes finalizados antes de este módulo, sin desglose, se muestran con la comisión vigente sobre `estimatedFare` (`getTripEarnings`, origen `legacy`).
+  - La propina se toma del documento del viaje (0 si no existe); el conductor no puede fijarla.
+  - Seguridad: como no existe backend, se descartó confiar en el cálculo del cliente. Las reglas replican la fórmula (`categoryMultiplierPercent`, `hasPricingInputs`, `calculatedTripFare`, `validCompletionFareBreakdown`) y solo aceptan el desglose exacto. Los datos de entrada (distancia, duración, categoría, propina y tarifa estimada) solo pueden escribirse al crear el viaje, operación que las reglas prohíben a la aplicación.
+  - Las pruebas detectaron que, con dos finalizaciones simultáneas, la segunda escritura recibía `permission-denied` (no reintentable). Ningún valor se duplicaba, pero la aplicación mostraba un error. Se añadió una comprobación posterior: si el viaje ya quedó finalizado por el mismo conductor, la operación se considera cumplida.
+  - Se descartó integrar Google Distance Matrix, la tarjeta de solicitud con la ganancia estimada y los pagos, por pertenecer a los módulos siguientes. Los textos fijos de `PaymentSummaryScreen` ("Próximo pago estimado", "Lunes próximo") quedan para el módulo de pagos.
+  - No se instalaron dependencias.
+- **Archivos creados:** `src/config/pricing.js` y `tests/fareLogic.test.cjs`.
+- **Archivos modificados:** `src/utils/fareLogic.js`, `src/services/tripLifecycle.js`, `src/screens/home/EarningsScreen.js`, `src/screens/home/PaymentSummaryScreen.js`, `src/screens/home/TripHistoryScreen.js`, `firestore.rules`, `tests/trips.rules.test.cjs`, `tests/tripCycle.integration.test.cjs`, `package.json` (script `test:unit`), `README.md` y `docs/AI_LOG.md`.
+- **Commit:** `f7cbd9a` (`feat: implementar tarifas y comisiones con validacion en firestore`), rama `feat/tarifas-comisiones`.
+- **Verificación:** `npm run test:all` con el emulador local de Firestore: 97 pruebas unitarias, 14 de integración y 92 de reglas, **203 aprobadas y 0 fallidas**. Las 18 pruebas unitarias nuevas cubren los ejemplos de la guía, cada categoría, la tarifa mínima, el redondeo (incluida una mitad exacta), distancia y tiempo cero, la comisión, la propina, entradas inválidas y la compatibilidad con viajes antiguos. Las 15 pruebas de reglas nuevas comprueban que las reglas aceptan el cálculo de la aplicación en 13 combinaciones y rechazan tarifas, comisiones, ganancias, porcentajes y propinas alterados, desgloses incompletos y reescrituras de un viaje finalizado. Las pruebas de integración verifican la persistencia del desglose, el reintento y la finalización simultánea; la de concurrencia se ejecutó cinco veces seguidas sin fallos. `npx expo-doctor`: 20/20. `npx expo export --platform ios`: bundle generado (988 módulos). `git diff --check` sin observaciones. No se probó en Expo Go ni contra Firebase de producción: las reglas nuevas no se han publicado.
+- **Limitaciones y dependencias para los módulos siguientes:**
+  - Al publicar estas reglas, una versión anterior de la aplicación que finalice viajes sin desglose será rechazada; la aplicación y las reglas deben actualizarse juntas.
+  - La fórmula está duplicada en `src/config/pricing.js` y `firestore.rules`; cualquier cambio de tarifa exige actualizar ambos.
+  - La seguridad depende de que los datos de entrada del viaje sean confiables. Hoy se crean en la consola; con una app de pasajero, la distancia y la duración deberían calcularse en un backend (Distance Matrix).
+  - Pendiente para el módulo de solicitudes: mostrar la tarifa y la ganancia estimadas con `calculateFare`.
+  - Pendiente para el módulo de pagos: registrar el método y el estado del pago, y calcular el saldo del conductor (comisión de viajes en efectivo).
+- **Aprendizaje:** Cuando no existe un backend, las reglas de Firestore pueden recalcular un valor derivado de datos que el cliente no puede modificar, siempre que la fórmula use operaciones con resultados idénticos en ambos entornos (enteros y redondeo `floor(x + 0,5)`). Las pruebas de concurrencia contra el emulador revelan comportamientos de las transacciones que no aparecen en pruebas secuenciales.
+
 ---
 
 ## Consideraciones generales
 
 - Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
-- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24 y #26 se realizaron con Claude Code en el repositorio local.
+- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26 y #27 se realizaron con Claude Code en el repositorio local.
 - Cuando un prompt no se conserva literalmente, el campo se identifica como resumen.
 - Los archivos generados por la plantilla de Expo (entrada #1) y por npm (`package-lock.json`) no constituyen código generado por IA.
 - Los commits de documentación `e7f8588`, `8748a20`, `f5ef7a9`, `04788d3`, `74b621a`, `3669693`, `8e6ef79`, `eff416b` y `8cf42fd` solo actualizan esta bitácora o el README; no consta el uso de IA en ellos.

@@ -247,6 +247,80 @@ service cloud.firestore {
         && driverCanAcceptTrip(request.auth.uid);
     }
 
+    // AI-assisted: see docs/AI_LOG.md #27
+    // Réplica de src/config/pricing.js y calculateFare() en
+    // src/utils/fareLogic.js. Si cambian los parámetros de tarifa, deben
+    // cambiarse en ambos sitios; las pruebas de reglas comparan los dos
+    // cálculos. Multiplicadores en porcentaje entero: 1,0 / 1,4 / 1,8.
+    function categoryMultiplierPercent(category) {
+      return {
+        'economy': 100,
+        'xl': 140,
+        'premium': 180,
+        'Económico': 100,
+        'XL': 140,
+        'Premium': 180
+      }.get(category, 0);
+    }
+
+    // Datos de recorrido válidos (distanceKm, durationMin y category).
+    function hasPricingInputs(trip) {
+      return trip.get('distanceKm', null) is number
+        && trip.distanceKm >= 0
+        && trip.distanceKm <= 1000
+        && trip.get('durationMin', null) is number
+        && trip.durationMin >= 0
+        && trip.durationMin <= 1440
+        && trip.get('category', null) is string
+        && categoryMultiplierPercent(trip.category) > 0;
+    }
+
+    // Tarifa: (3.500 + km × 1.200 + min × 250) × multiplicador, redondeada
+    // al múltiplo de 100 COP más cercano y con un mínimo de 6.000 COP.
+    function calculatedTripFare(trip) {
+      let subtotal = 3500
+        + math.floor(trip.distanceKm * 1200 + 0.5)
+        + math.floor(trip.durationMin * 250 + 0.5);
+      let rounded = math.floor(
+        (subtotal * categoryMultiplierPercent(trip.category) + 5000) / 10000.0
+      ) * 100;
+      return rounded < 6000 ? 6000 : rounded;
+    }
+
+    // Propina registrada en el viaje; ausente o null equivale a 0.
+    function tripTip(trip) {
+      return trip.get('tip', null) == null ? 0 : trip.tip;
+    }
+
+    // El desglose guardado al finalizar debe coincidir con el calculado a
+    // partir del documento del viaje: el conductor no puede fijar la tarifa,
+    // la comisión, su ganancia ni la propina. Sin datos de recorrido, la
+    // tarifa es estimatedFare (compatibilidad con viajes anteriores).
+    function validCompletionFareBreakdown(before, after) {
+      let tip = tripTip(before);
+      let fare = after.get('fare', null);
+      let commission = after.get('commission', null);
+      return tip is number
+        && tip >= 0
+        && math.floor(tip) == tip
+        && after.get('tip', null) == tip
+        && after.get('commissionRate', null) == 0.2
+        && fare is number
+        && (
+          hasPricingInputs(before)
+            ? (
+              after.get('fareSource', null) == 'calculated'
+              && fare == calculatedTripFare(before)
+            )
+            : (
+              after.get('fareSource', null) == 'estimated'
+              && fare == before.get('estimatedFare', null)
+            )
+        )
+        && commission == math.floor(fare * 20 / 100.0 + 0.5)
+        && after.get('driverEarnings', null) == fare - commission + tip;
+    }
+
     // AI-assisted: see docs/AI_LOG.md #17
     function validTripLifecycleTransition() {
       return request.auth != null
@@ -287,8 +361,15 @@ service cloud.firestore {
             && request.resource.data.get('status', null) == 'completed'
             && resource.data.get('completedAt', null) == null
             && request.resource.data.get('completedAt', null) == request.time
+            // AI-assisted: see docs/AI_LOG.md #27
             && request.resource.data.diff(resource.data)
-              .affectedKeys().hasOnly(['status', 'completedAt'])
+              .affectedKeys().hasOnly([
+                'status', 'completedAt', 'fare', 'commission',
+                'commissionRate', 'driverEarnings', 'tip', 'fareSource'
+              ])
+            && validCompletionFareBreakdown(
+              resource.data, request.resource.data
+            )
           )
           ||
           (
