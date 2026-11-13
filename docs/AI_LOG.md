@@ -243,4 +243,4 @@ La inteligencia artificial se utilizó como herramienta de apoyo durante el desa
 - **Archivos modificados:** `App.js`, `src/screens/home/DriverHomeScreen.js`, `src/components/trips/TripRequests.js`, `src/services/tripService.js` y `package.json`.
 - **Pruebas:** 52 pruebas unitarias aprobadas, incluyendo cinco nuevas para validar viajes activos. También se ejecutaron previamente una prueba de integración y 55 pruebas de reglas de Firestore, todas satisfactorias. La exportación iOS se completó correctamente.
 - **Limitaciones:** Queda pendiente verificar manualmente la recuperación del viaje después de reiniciar la aplicación y probar específicamente los fallos de AsyncStorage y de sincronización con Firestore.
-- **Commit:** Pendiente.
+- **Commit:** `a439abc` (`feat: implementar contexto global del conductor y persistencia de viajes`).
