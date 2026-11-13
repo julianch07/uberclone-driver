@@ -137,12 +137,6 @@
 - **Aprendizaje:** Se comprendió cómo ampliar un asistente de registro con nuevos componentes, centralizar las validaciones por sección, integrar fotografías y datos adicionales en los servicios de persistencia y controlar la navegación sin perder la información guardada.
 
 
-
-
-### Consideraciones generales
-
-La inteligencia artificial se utilizó como herramienta de apoyo durante el desarrollo del proyecto para orientar configuraciones, proponer estructuras, generar fragmentos de código y resolver dudas técnicas.
-
 Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
 
 ### Entrada #10
@@ -183,6 +177,11 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 - **Resumen de la respuesta:** Se implementó una pantalla de inicio con cuatro pestañas, integración con el registro persistido, lectura del estado de aprobación y disponibilidad guardada en Firestore mediante transacción. Se añadieron reglas de seguridad para impedir activar la disponibilidad sin aprobación. En una revisión posterior se separó el acceso al Home de la vigencia documental, se agregó un marcador de guardado exitoso y una confirmación antes de descartar cambios.
 - **Qué se usó / modificó / descartó:** Se reutilizó el flujo de autenticación y los validadores; no se incorporó Expo Router ni dependencias adicionales. Las secciones de viajes y ganancias quedan como pantallas provisionales.
 - **Archivos:** `App.js`, `src/screens/home/DriverHomeScreen.js`, `src/screens/registration/RegistrationScreen.js`, `src/services/availabilityService.js`, `src/services/firestoreService.js`, `src/utils/driverRegistration.js`, `firestore.rules`, `firebase.json`, `tests/firestore.rules.test.cjs`, `package.json`, `package-lock.json`, `.gitignore` y `docs/AI_LOG.md`.
-- **Commit:** Pendiente de revisión, pruebas y creación por el propietario.
+- **Commit:** `bd26a6b` (`feat: implementar home y disponibilidad del conductor`). Integrado en `main` mediante el Pull Request #9, merge `49ab7ee`.
 - **Verificación:** Se probó el módulo Home en Expo Go y se ejecutó `npx expo export --platform ios` correctamente. Se ejecutaron 12 pruebas automatizadas de reglas de Firestore en el emulador, con 12 resultados aprobados y 0 fallidos. Sin embargo, varios rechazos produjeron `evaluation error`, por lo que las validaciones negativas requieren revisión adicional. `git diff --check` terminó sin observaciones. Las reglas todavía no se han desplegado en Firebase Console y no se ha verificado su comportamiento en producción.
 - **Aprendizaje:** La autorización para conectarse debe comprobarse en Firestore y no únicamente en la interfaz del dispositivo.
+
+
+### Consideraciones generales
+
+La inteligencia artificial se utilizó como herramienta de apoyo durante el desarrollo del proyecto para orientar configuraciones, proponer estructuras, generar fragmentos de código y resolver dudas técnicas.
