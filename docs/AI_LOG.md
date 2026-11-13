@@ -317,4 +317,12 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 
 ### Consideraciones generales
 
-La inteligencia artificial se utilizó como herramienta de apoyo durante el desarrollo del proyecto para orientar configuraciones, proponer estructuras, generar fragmentos de código y resolver dudas técnicas.
+### Entrada #22
+
+- **Fecha:** 2026-11-13
+- **Herramienta:** Gemini CLI
+- **Objetivo:** Finalización del proyecto: sistema de tarifas, pantallas de ganancias, historial, perfil, pagos, navegación y corrección de permisos.
+- **Resumen de la respuesta:** Se implementó el sistema de tarifas con comisión del 20% en `fareLogic.js`. Se crearon las pantallas de `EarningsScreen`, `TripHistoryScreen`, `ProfileScreen` y `PaymentSummaryScreen`. Se integró `react-navigation` para la gestión de pantallas. Se corrigieron las reglas de Firestore para manejar mejor los formatos de fecha en la aceptación de viajes.
+- **Archivos:** `src/utils/fareLogic.js`, `src/screens/home/EarningsScreen.js`, `src/screens/home/TripHistoryScreen.js`, `src/screens/home/ProfileScreen.js`, `src/screens/home/PaymentSummaryScreen.js`, `src/navigation/AppNavigator.js`, `App.js`, `src/screens/home/DriverHomeScreen.js`, `firestore.rules`, `src/services/tripService.js`.
+- **Verificación:** Se instalaron las dependencias de navegación. Se actualizaron las reglas de seguridad. Se verificó la exportación de iOS.
+- **Aprendizaje:** La integración de navegación profesional mejora la experiencia del usuario. Las reglas de Firestore deben ser extremadamente robustas con los formatos de datos.

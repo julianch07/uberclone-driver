@@ -32,6 +32,12 @@ import { PERMISSION } from '../../utils/locationLogic';
 // AI-assisted: see docs/AI_LOG.md #16
 import { useDriverContext } from '../../context/DriverContext';
 
+// New Screens
+import EarningsScreen from './EarningsScreen';
+import ProfileScreen from './ProfileScreen';
+import TripHistoryScreen from './TripHistoryScreen';
+import PaymentSummaryScreen from './PaymentSummaryScreen';
+
 const TABS = [
   { key: 'home', label: 'Inicio' },
   { key: 'trips', label: 'Viajes' },
@@ -42,6 +48,7 @@ const TABS = [
 export default function DriverHomeScreen({ uid, onEditRegistration }) {
   const { setIsOnline, activeTrip } = useDriverContext();
   const [tab, setTab] = useState('home');
+  const [subTab, setSubTab] = useState('summary'); // For earnings/payments
   const [registration, setRegistration] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -367,44 +374,36 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
         ) : null}
 
         {!loading && registration && tab === 'earnings' ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Mis ganancias</Text>
-            <Text style={styles.muted}>
-              El resumen de ganancias se habilitará cuando
-              implementemos los viajes y las tarifas.
-            </Text>
+          <View style={{ flex: 1 }}>
+            <View style={styles.subTabs}>
+              <TouchableOpacity 
+                style={[styles.subTab, subTab === 'summary' && styles.selectedSubTab]} 
+                onPress={() => setSubTab('summary')}
+              >
+                <Text style={[styles.subTabText, subTab === 'summary' && styles.selectedSubTabText]}>Resumen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.subTab, subTab === 'payments' && styles.selectedSubTab]} 
+                onPress={() => setSubTab('payments')}
+              >
+                <Text style={[styles.subTabText, subTab === 'payments' && styles.selectedSubTabText]}>Pagos</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.subTab, subTab === 'history' && styles.selectedSubTab]} 
+                onPress={() => setSubTab('history')}
+              >
+                <Text style={[styles.subTabText, subTab === 'history' && styles.selectedSubTabText]}>Historial</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {subTab === 'summary' && <EarningsScreen uid={uid} />}
+            {subTab === 'payments' && <PaymentSummaryScreen uid={uid} />}
+            {subTab === 'history' && <TripHistoryScreen uid={uid} />}
           </View>
         ) : null}
 
         {!loading && registration && tab === 'profile' ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{name}</Text>
-
-            <Text style={styles.muted}>
-              Teléfono: {registration.personalData?.phone || 'Sin información'}
-            </Text>
-
-            <Text style={styles.muted}>
-              Vehículo:{' '}
-              {[vehicle?.make, vehicle?.model]
-                .filter(Boolean)
-                .join(' ') || 'Sin información'}
-            </Text>
-
-            <Text style={styles.muted}>
-              Placa: {vehicle?.plate || 'Sin información'}
-            </Text>
-
-            <Text style={styles.muted}>
-              Estado: {APPROVAL_STATUS_INFO[status].label}
-            </Text>
-
-            <Action
-              label="Editar mi registro"
-              onPress={onEditRegistration}
-              disabled={busy}
-            />
-          </View>
+          <ProfileScreen uid={uid} onEditRegistration={onEditRegistration} />
         ) : null}
       </ScrollView>
 
@@ -541,6 +540,30 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     color: '#276EF1',
+  },
+  subTabs: {
+    flexDirection: 'row',
+    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 4,
+  },
+  subTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  selectedSubTab: {
+    backgroundColor: '#276EF1',
+  },
+  subTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#697386',
+  },
+  selectedSubTabText: {
+    color: '#FFFFFF',
   },
   error: {
     color: '#B42318',

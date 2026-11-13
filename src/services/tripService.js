@@ -120,3 +120,26 @@ export async function completeTrip(tripId, driverId, database = db) {
 export async function cancelTrip(tripId, driverId, database = db) {
   return cancelTripWithDatabase(database, tripId, driverId);
 }
+
+/**
+ * Fetches the trip history for a driver.
+ * @param {string} driverId Driver UID.
+ * @param {number} maxResults Maximum number of results.
+ * @returns {Promise<Array>} List of trips.
+ */
+export async function getDriverTripHistory(driverId, maxResults = 50) {
+  if (!driverId) throw new Error('ID del conductor es obligatorio');
+
+  const historyQuery = query(
+    collection(db, 'trips'),
+    where('driverId', '==', driverId),
+    where('status', 'in', [TRIP_STATUS.COMPLETED, TRIP_STATUS.CANCELLED]),
+    limit(maxResults)
+  );
+
+  const snapshot = await getDocs(historyQuery);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })).sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+}

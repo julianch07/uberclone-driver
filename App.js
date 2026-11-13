@@ -5,15 +5,15 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 // AI-assisted: see docs/AI_LOG.md #16
+import { NavigationContainer } from '@react-navigation/native';
 import { DriverProvider } from './src/context/DriverContext';
-import RegistrationScreen from './src/screens/registration/RegistrationScreen';
-import DriverHomeScreen from './src/screens/home/DriverHomeScreen';
-import { getDriverRegistration } from './src/services/firestoreService';
-import { hasSavedRegistration } from './src/utils/driverRegistration';
+import AppNavigator from './src/navigation/AppNavigator';
 import {
   signInDriverAnonymously,
   subscribeToAuthChanges,
 } from './src/services/authService';
+import { getDriverRegistration } from './src/services/firestoreService';
+import { hasSavedRegistration } from './src/utils/driverRegistration';
 
 export default function App() {
   const [driverUid, setDriverUid] = useState(null);
@@ -50,23 +50,19 @@ export default function App() {
   }, [driverUid]);
 
   return (
-    <>
+    <NavigationContainer>
       <StatusBar style="dark" />
       <DriverProvider key={driverUid || 'guest'} uid={driverUid}>
-      {driverUid && screen === 'home' ? (
-        <DriverHomeScreen uid={driverUid} onEditRegistration={() => setScreen('registration')} />
-      ) : driverUid && screen === 'registration' ? (
-        <RegistrationScreen uid={driverUid} onRegistrationSaved={() => setScreen('home')} onBackToHome={() => setScreen('home')} />
-      ) : (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#276EF1" />
-          <Text style={styles.loadingText}>
-            {screen === 'error' ? loadError : 'Preparando el registro del conductor...'}
-          </Text>
-        </View>
-      )}
+        <AppNavigator 
+          driverUid={driverUid}
+          screen={screen}
+          onEditRegistration={() => setScreen('registration')}
+          onRegistrationSaved={() => setScreen('home')}
+          onBackToHome={() => setScreen('home')}
+          loadError={loadError}
+        />
       </DriverProvider>
-    </>
+    </NavigationContainer>
   );
 }
 
