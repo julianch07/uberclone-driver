@@ -25,6 +25,7 @@ import {
 import { setDriverAvailability } from '../../services/availabilityService';
 import { hasCompleteSavedRegistration } from '../../utils/driverRegistration';
 import DriverMap from '../../components/map/DriverMap';
+import TripRequests from '../../components/trips/TripRequests';
 import LocationPermission from '../../components/map/LocationPermission';
 import useDriverLocation from '../../hooks/useDriverLocation';
 import { PERMISSION } from '../../utils/locationLogic';
@@ -326,13 +327,10 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
         ) : null}
 
         {!loading && registration && tab === 'trips' ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Mis viajes</Text>
-            <Text style={styles.muted}>
-              Aquí aparecerán tus solicitudes, viajes activos e
-              historial cuando implementemos el módulo de viajes.
-            </Text>
-          </View>
+          <TripRequests
+            uid={uid}
+            enabled={online && !disconnecting}
+          />
         ) : null}
 
         {!loading && registration && tab === 'earnings' ? (
