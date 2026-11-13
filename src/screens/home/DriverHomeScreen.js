@@ -40,7 +40,7 @@ const TABS = [
 ];
 
 export default function DriverHomeScreen({ uid, onEditRegistration }) {
-  const { setIsOnline } = useDriverContext();
+  const { setIsOnline, activeTrip } = useDriverContext();
   const [tab, setTab] = useState('home');
   const [registration, setRegistration] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -282,6 +282,7 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
                     position={location.position}
                     loading
                     error={location.locationError}
+                    activeTrip={activeTrip}
                   />
 
                   {location.publishError ? (
@@ -335,10 +336,34 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
         ) : null}
 
         {!loading && registration && tab === 'trips' ? (
-          <TripRequests
-            uid={uid}
-            enabled={online && !disconnecting}
-          />
+          <>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Mapa del viaje</Text>
+
+              {location.permission.status === PERMISSION.GRANTED &&
+              location.servicesEnabled ? (
+                <DriverMap
+                  position={location.position}
+                  loading
+                  error={location.locationError}
+                  activeTrip={activeTrip}
+                />
+              ) : (
+                <LocationPermission
+                  permission={location.permission}
+                  servicesEnabled={location.servicesEnabled}
+                  requesting={location.requesting}
+                  onRequestPermission={location.requestPermission}
+                  onRecheck={location.recheck}
+                />
+              )}
+            </View>
+
+            <TripRequests
+              uid={uid}
+              enabled={online && !disconnecting}
+            />
+          </>
         ) : null}
 
         {!loading && registration && tab === 'earnings' ? (
