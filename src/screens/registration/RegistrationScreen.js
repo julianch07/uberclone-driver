@@ -1,7 +1,9 @@
+// AI-assisted: see docs/AI_LOG.md #12
 // AI-assisted: see docs/AI_LOG.md
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,6 +32,7 @@ import {
   validateVehicleData,
   validateDocumentsPayments,
 } from '../../utils/registrationValidation';
+import { hasSavedRegistration } from '../../utils/driverRegistration';
 import {
   getSectionCompletion,
   resolveStepNavigation,
@@ -87,7 +90,7 @@ const INITIAL_DOCUMENTS_DATA = {
   acceptedTerms: false,
 };
 
-export default function RegistrationScreen({ uid }) {
+export default function RegistrationScreen({ uid, onRegistrationSaved, onBackToHome }) {
   const [currentStep, setCurrentStep] = useState(0);
 
   const [personalData, setPersonalData] = useState(
@@ -108,6 +111,7 @@ export default function RegistrationScreen({ uid }) {
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState('');
   const [approvalStatus, setApprovalStatus] = useState(null);
+  const [canReturnHome, setCanReturnHome] = useState(false);
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
 
   useEffect(() => {
@@ -122,6 +126,7 @@ export default function RegistrationScreen({ uid }) {
         }
 
         setApprovalStatus(getApprovalStatus(registration));
+        setCanReturnHome(hasSavedRegistration(registration));
 
         setPersonalData({
           ...INITIAL_PERSONAL_DATA,
@@ -377,9 +382,8 @@ export default function RegistrationScreen({ uid }) {
       }
 
       setStatusType('success');
-      setStatusMessage(
-        '¡Tu registro se guardó correctamente!'
-      );
+      setStatusMessage('¡Tu registro se guardó correctamente!');
+      if (onRegistrationSaved) onRegistrationSaved();
     } catch (error) {
       console.error('Error al guardar el registro:', error);
 
@@ -440,6 +444,15 @@ export default function RegistrationScreen({ uid }) {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.brand}>UBERCLONE DRIVER</Text>
+      {onBackToHome && canReturnHome ? (
+        <TouchableOpacity onPress={() => Alert.alert(
+          'Volver al inicio',
+          'Los cambios que no hayas guardado se perderán.',
+          [{ text: 'Cancelar', style: 'cancel' }, { text: 'Volver', onPress: onBackToHome }]
+        )} disabled={isSaving} style={{ marginTop: 12 }}>
+          <Text style={{ color: '#276EF1', fontWeight: '700' }}>← Volver al inicio</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <Text style={styles.heading}>Registro de conductor</Text>
 
