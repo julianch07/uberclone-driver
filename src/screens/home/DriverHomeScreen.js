@@ -1,5 +1,6 @@
 
  // AI-assisted: see docs/AI_LOG.md #12
+// AI-assisted: see docs/AI_LOG.md #13
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +24,10 @@ import {
 
 import { setDriverAvailability } from '../../services/availabilityService';
 import { hasCompleteSavedRegistration } from '../../utils/driverRegistration';
+import DriverMap from '../../components/map/DriverMap';
+import LocationPermission from '../../components/map/LocationPermission';
+import useDriverLocation from '../../hooks/useDriverLocation';
+import { PERMISSION } from '../../utils/locationLogic';
 
 const TABS = [
   { key: 'home', label: 'Inicio' },
@@ -38,6 +43,7 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [disconnecting, setDisconnecting] = useState(false);
 
   // Permite consultar nuevamente el registro de forma manual.
   const refresh = useCallback(async () => {
@@ -102,6 +108,22 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
   const status = getApprovalStatus(registration);
   const online = Boolean(registration?.isOnline) && canConnect;
 
+  // Seguimiento GPS: mientras se ve el mapa (pestaña Inicio) o mientras el
+  // conductor está conectado. La ubicación solo se publica si está conectado
+  // y no está en proceso de desconectarse.
+  const location = useDriverLocation({
+    uid,
+    watchEnabled: tab === 'home' || online,
+    publishEnabled: online && !disconnecting,
+  });
+
+  // Cuando Firestore confirma la desconexión, se vuelve a la normalidad.
+  useEffect(() => {
+    if (disconnecting && !registration?.isOnline) {
+      setDisconnecting(false);
+    }
+  }, [disconnecting, registration?.isOnline]);
+
   const name =
     registration?.personalData?.fullName?.trim() || 'Conductor';
 
@@ -125,8 +147,18 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
     setError('');
     setMessage('');
 
+    // Se deja de publicar la ubicación antes de pedir la desconexión.
+    if (!next) {
+      setDisconnecting(true);
+    }
+
     try {
       await setDriverAvailability(uid, next);
+
+      let locationCleared = true;
+      if (!next) {
+        locationCleared = await location.clearPublishedLocation();
+      }
 
       // onSnapshot actualizará automáticamente el estado real.
       setMessage(
@@ -134,7 +166,15 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
           ? 'Disponibilidad actualizada. Ya puedes recibir viajes cuando el módulo esté habilitado.'
           : 'Te has desconectado correctamente.'
       );
+      if (!next && !locationCleared) {
+        setError(
+          'Te has desconectado, pero no se pudo eliminar la última ubicación guardada. Comprueba tu conexión e inténtalo de nuevo más tarde.'
+        );
+      }
     } catch (e) {
+      // Si la desconexión falló, el conductor sigue conectado: se reanuda
+      // la publicación.
+      setDisconnecting(false);
       setError(
         e.message || 'No fue posible actualizar tu disponibilidad.'
       );
@@ -218,6 +258,50 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
                   onPress={onEditRegistration}
                   disabled={busy}
                 />
+              ) : null}
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.label}>TU UBICACIÓN</Text>
+
+              {location.checking ? (
+                <ActivityIndicator size="small" color="#276EF1" />
+              ) : location.permission.status === PERMISSION.GRANTED &&
+                location.servicesEnabled ? (
+                <>
+                  <DriverMap
+                    position={location.position}
+                    loading
+                    error={location.locationError}
+                  />
+
+                  {location.publishError ? (
+                    <Text style={styles.error}>
+                      {location.publishError}
+                    </Text>
+                  ) : null}
+
+                  <Text style={styles.muted}>
+                    {online
+                      ? 'Tu ubicación se comparte mientras estás conectado y la app está abierta.'
+                      : 'Tu ubicación solo se comparte cuando estás conectado.'}
+                  </Text>
+                </>
+              ) : (
+                <LocationPermission
+                  permission={location.permission}
+                  servicesEnabled={location.servicesEnabled}
+                  requesting={location.requesting}
+                  onRequestPermission={location.requestPermission}
+                  onRecheck={location.recheck}
+                />
+              )}
+
+              {online && location.permission.status !== PERMISSION.GRANTED ? (
+                <Text style={styles.muted}>
+                  Estás conectado, pero sin permiso de ubicación no se
+                  publica tu posición.
+                </Text>
               ) : null}
             </View>
 
