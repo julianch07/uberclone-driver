@@ -1,3 +1,4 @@
+
 // AI-assisted: see docs/AI_LOG.md #15
 const fs = require('node:fs');
 const { test } = require('node:test');
@@ -61,46 +62,43 @@ test('Integración real de aceptación de viajes', async () => {
   try {
     await environment.clearFirestore();
 
-    const expiration = new Date();
-    expiration.setFullYear(expiration.getFullYear() + 5);
-
     await environment.withSecurityRulesDisabled(async (context) => {
       const database = context.firestore();
 
       await setDoc(doc(database, 'drivers', 'driver-integration'), {
         personalData: {
           profilePhoto: 'https://example.com/profile.jpg',
-          fullName: 'Juan Carlos Perez',
+          fullName: 'Paula Andrea Muñoz correa',
           identityDocument: '1234567890',
           phone: '3001234567',
-          birthDate: '2000-05-15T00:00:00.000Z',
-          gender: 'Masculino',
-          email: 'juan@example.com',
+          birthDate: '2005-11-05T05:00:00.000Z',
+          gender: 'Femenino',
+          email: 'test@example.com',
           language: 'Español',
         },
         vehicleData: {
           vehiclePhoto: 'https://example.com/vehicle.jpg',
-          category: 'Económico',
-          plate: 'ABC123',
+          category: 'Premium',
+          plate: 'GHC238',
           make: 'Renault',
-          model: 'Logan',
-          year: '2022',
-          color: 'Blanco',
-          passengerCapacity: '4',
+          model: 'Kwid 2024',
+          year: '2025',
+          color: 'Amarillo',
+          passengerCapacity: '3',
         },
         documentsData: {
           licenseNumber: '123456789',
           licensePhoto: 'https://example.com/license.jpg',
-          licenseExpiration: expiration.toISOString(),
+          licenseExpiration: '2028-12-11T22:49:36.000Z',
           soatPhoto: 'https://example.com/soat.jpg',
-          soatExpiration: expiration.toISOString(),
+          soatExpiration: '2029-02-15T22:49:51.000Z',
           technicalReviewPhoto: '',
           technicalReviewExpiration: '',
-          mercadoPagoEmail: 'juan@example.com',
+          mercadoPagoEmail: 'test@example.com',
           acceptedTerms: true,
         },
         approvalStatus: 'approved',
-        registrationCompletedAt: new Date(),
+        registrationCompletedAt: new Date('2026-11-12T13:54:40.000Z'),
         isOnline: true,
       });
 
@@ -108,14 +106,14 @@ test('Integración real de aceptación de viajes', async () => {
         status: 'pending',
         driverId: null,
         pickup: {
-          address: 'Parque de Berrío, Medellín',
-          latitude: 6.2518,
-          longitude: -75.5636,
+          address: 'Centro Comercial Santafé, Medellín',
+          latitude: 6.1967,
+          longitude: -75.5732,
         },
         destination: {
-          address: 'Estadio Atanasio Girardot, Medellín',
-          latitude: 6.2565,
-          longitude: -75.5905,
+          address: 'Parque de El Poblado, Medellín',
+          latitude: 6.2095,
+          longitude: -75.57,
         },
         estimatedFare: 15000,
         createdAt: new Date(),
