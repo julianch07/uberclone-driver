@@ -75,7 +75,14 @@ export default function TripHistoryScreen({ uid }) {
             
             <View style={styles.footer}>
               <Text style={styles.fareLabel}>Tarifa</Text>
-              <Text style={styles.fareValue}>{formatCurrency(item.estimatedFare)}</Text>
+              {/* AI-assisted: see docs/AI_LOG.md #27 */}
+              {/* Tarifa final guardada al finalizar; si no existe (viaje
+                  cancelado o anterior al módulo de tarifas), la estimada. */}
+              <Text style={styles.fareValue}>
+                {formatCurrency(
+                  typeof item.fare === 'number' ? item.fare : item.estimatedFare
+                )}
+              </Text>
             </View>
           </View>
         )}

@@ -24,6 +24,15 @@ const {
   serverTimestamp,
 } = require('firebase/firestore');
 
+// AI-assisted: see docs/AI_LOG.md #27
+// Las reglas replican calculateFare(); las pruebas usan la función real de la
+// aplicación para comprobar que ambos cálculos coinciden.
+const { loadModule } = require('./helpers/loadModule.cjs');
+const {
+  buildCompletionBreakdown,
+  calculateFare,
+} = loadModule('src/utils/fareLogic.js');
+
 // AI-assisted: see docs/AI_LOG.md #23
 // Proyecto propio: evita que clearFirestore de otro archivo de pruebas
 // ejecutado en paralelo borre estos datos.
@@ -793,16 +802,28 @@ test('Reglas de seguridad de viajes', async (t) => {
       const context = environment.authenticatedContext('driver-lifecycle');
       const ref = doc(context.firestore(), 'trips', 'trip-complete');
 
-      await assertSucceeds(
+      // AI-assisted: see docs/AI_LOG.md #27
+      // Desde el módulo de tarifas, finalizar exige guardar el desglose.
+      await assertFails(
         updateDoc(ref, {
           status: 'completed',
           completedAt: serverTimestamp(),
         })
       );
 
+      await assertSucceeds(
+        updateDoc(ref, {
+          status: 'completed',
+          completedAt: serverTimestamp(),
+          ...buildCompletionBreakdown(validTrip()),
+        })
+      );
+
       const snapshot = await assertSucceeds(getDoc(ref));
       assert.equal(snapshot.data().status, 'completed');
       assert.ok(snapshot.data().completedAt);
+      assert.equal(snapshot.data().fare, 15000);
+      assert.equal(snapshot.data().fareSource, 'estimated');
     });
 
     await t.test('Permite cancelar un viaje aceptado', async () => {
@@ -897,6 +918,209 @@ test('Reglas de seguridad de viajes', async (t) => {
           startedAt: serverTimestamp(),
           estimatedFare: 150000,
         })
+      );
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #27
+    // --- Módulo de tarifas y comisiones -----------------------------------
+
+    async function seedInProgressTrip(tripId, overrides = {}) {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', tripId),
+          validTrip({
+            status: 'in_progress',
+            driverId: 'driver-fare-rules',
+            ...overrides,
+          })
+        );
+      });
+
+      return doc(
+        environment.authenticatedContext('driver-fare-rules').firestore(),
+        'trips',
+        tripId
+      );
+    }
+
+    function completion(fields) {
+      return {
+        status: 'completed',
+        completedAt: serverTimestamp(),
+        ...fields,
+      };
+    }
+
+    const PRICED_TRIP = {
+      distanceKm: 8.5,
+      durationMin: 22,
+      category: 'xl',
+      estimatedFare: 26900,
+    };
+
+    await t.test('Permite finalizar con la tarifa calculada por la aplicación', async () => {
+      const ref = await seedInProgressTrip('trip-fare-ok', PRICED_TRIP);
+      const breakdown = buildCompletionBreakdown(validTrip(PRICED_TRIP));
+
+      assert.deepEqual(
+        [breakdown.fare, breakdown.commission, breakdown.driverEarnings],
+        [26900, 5380, 21520]
+      );
+
+      await assertSucceeds(updateDoc(ref, completion(breakdown)));
+
+      const data = (await assertSucceeds(getDoc(ref))).data();
+      assert.equal(data.fare, 26900);
+      assert.equal(data.commission, 5380);
+      assert.equal(data.commissionRate, 0.2);
+      assert.equal(data.driverEarnings, 21520);
+      assert.equal(data.tip, 0);
+      assert.equal(data.fareSource, 'calculated');
+    });
+
+    for (const scenario of [
+      { name: 'una tarifa mayor', change: (b) => ({ fare: b.fare + 1000 }) },
+      { name: 'una comisión menor', change: (b) => ({ commission: b.commission - 1 }) },
+      { name: 'una ganancia mayor', change: (b) => ({ driverEarnings: b.driverEarnings + 5000 }) },
+      { name: 'otro porcentaje de comisión', change: () => ({ commissionRate: 0.1 }) },
+      { name: 'una propina inventada', change: (b) => ({ tip: 5000, driverEarnings: b.driverEarnings + 5000 }) },
+      { name: 'la tarifa estimada en lugar de la calculada', change: () => ({ fare: 20000, commission: 4000, driverEarnings: 16000, fareSource: 'estimated' }) },
+      { name: 'campos adicionales', change: () => ({ bonus: 1000 }) },
+    ]) {
+      await t.test(`Impide finalizar con ${scenario.name}`, async () => {
+        const id = `trip-fare-${scenario.name.replaceAll(' ', '-')}`;
+        const ref = await seedInProgressTrip(id, {
+          ...PRICED_TRIP,
+          estimatedFare: 20000,
+        });
+        const breakdown = buildCompletionBreakdown(validTrip(PRICED_TRIP));
+
+        await assertFails(
+          updateDoc(ref, completion({ ...breakdown, ...scenario.change(breakdown) }))
+        );
+      });
+    }
+
+    await t.test('Impide finalizar sin parte del desglose', async () => {
+      const ref = await seedInProgressTrip('trip-fare-partial', PRICED_TRIP);
+      const { driverEarnings, ...withoutEarnings } =
+        buildCompletionBreakdown(validTrip(PRICED_TRIP));
+
+      await assertFails(updateDoc(ref, completion(withoutEarnings)));
+    });
+
+    await t.test('La propina del viaje va completa al conductor y no puede alterarse', async () => {
+      const tripData = { ...PRICED_TRIP, category: 'economy', estimatedFare: 19200, tip: 2000 };
+      const ref = await seedInProgressTrip('trip-fare-tip', tripData);
+      const breakdown = buildCompletionBreakdown(validTrip(tripData));
+
+      assert.equal(breakdown.commission, 3840);
+      assert.equal(breakdown.driverEarnings, 17360);
+
+      await assertFails(
+        updateDoc(ref, completion({ ...breakdown, tip: 0, driverEarnings: 15360 }))
+      );
+      await assertSucceeds(updateDoc(ref, completion(breakdown)));
+    });
+
+    await t.test('Viaje antiguo sin datos de recorrido: la tarifa es estimatedFare', async () => {
+      const ref = await seedInProgressTrip('trip-fare-legacy', { estimatedFare: 15000 });
+
+      await assertFails(
+        updateDoc(ref, completion({
+          fare: 18000,
+          commission: 3600,
+          commissionRate: 0.2,
+          driverEarnings: 14400,
+          tip: 0,
+          fareSource: 'estimated',
+        }))
+      );
+      await assertFails(
+        updateDoc(ref, completion({
+          ...buildCompletionBreakdown({ estimatedFare: 15000 }),
+          fareSource: 'calculated',
+        }))
+      );
+      await assertSucceeds(
+        updateDoc(ref, completion(buildCompletionBreakdown({ estimatedFare: 15000 })))
+      );
+    });
+
+    await t.test('No permite volver a escribir un viaje ya finalizado', async () => {
+      const ref = await seedInProgressTrip('trip-fare-retry', PRICED_TRIP);
+      const breakdown = buildCompletionBreakdown(validTrip(PRICED_TRIP));
+
+      await assertSucceeds(updateDoc(ref, completion(breakdown)));
+      await assertFails(updateDoc(ref, completion(breakdown)));
+      await assertFails(
+        updateDoc(ref, { driverEarnings: breakdown.driverEarnings + 1000 })
+      );
+    });
+
+    await t.test('Las reglas calculan la misma tarifa que calculateFare()', async () => {
+      const cases = [
+        { distanceKm: 0, durationMin: 0, category: 'economy' },
+        { distanceKm: 0, durationMin: 0, category: 'xl' },
+        { distanceKm: 0, durationMin: 0, category: 'premium' },
+        { distanceKm: 1, durationMin: 1, category: 'economy' },
+        { distanceKm: 1, durationMin: 0.2, category: 'xl' },
+        { distanceKm: 10.04, durationMin: 0, category: 'economy' },
+        { distanceKm: 10.05, durationMin: 0, category: 'economy' },
+        { distanceKm: 3.33, durationMin: 13.7, category: 'premium' },
+        { distanceKm: 12.345, durationMin: 0.002, category: 'xl' },
+        { distanceKm: 8.5, durationMin: 22, category: 'Económico' },
+        { distanceKm: 8.5, durationMin: 22, category: 'XL' },
+        { distanceKm: 8.5, durationMin: 22, category: 'Premium' },
+        { distanceKm: 1000, durationMin: 1440, category: 'premium' },
+      ];
+
+      for (const [index, inputs] of cases.entries()) {
+        const expected = calculateFare(inputs);
+        const tripData = { ...inputs, estimatedFare: expected.fare };
+        const ref = await seedInProgressTrip(`trip-fare-matrix-${index}`, tripData);
+
+        await assertSucceeds(
+          updateDoc(ref, completion(buildCompletionBreakdown(validTrip(tripData))))
+        );
+
+        const data = (await getDoc(ref)).data();
+        assert.equal(data.fare, expected.fare, JSON.stringify(inputs));
+      }
+    });
+
+    await t.test('Datos de recorrido inválidos: se exige estimatedFare', async () => {
+      for (const [index, overrides] of [
+        { distanceKm: -1, durationMin: 10, category: 'xl' },
+        { distanceKm: 5, durationMin: 10, category: 'moto' },
+        { distanceKm: 5, durationMin: 2000, category: 'xl' },
+        { distanceKm: '5', durationMin: 10, category: 'xl' },
+      ].entries()) {
+        const tripData = { ...overrides, estimatedFare: 12000 };
+        const ref = await seedInProgressTrip(`trip-fare-invalid-${index}`, tripData);
+        const breakdown = buildCompletionBreakdown(validTrip(tripData));
+
+        assert.equal(breakdown.fareSource, 'estimated');
+        assert.equal(breakdown.fare, 12000);
+        await assertSucceeds(updateDoc(ref, completion(breakdown)));
+      }
+    });
+
+    await t.test('Impide finalizar con una propina inválida en el viaje', async () => {
+      const ref = await seedInProgressTrip('trip-fare-bad-tip', {
+        estimatedFare: 15000,
+        tip: -500,
+      });
+
+      await assertFails(
+        updateDoc(ref, completion({
+          fare: 15000,
+          commission: 3000,
+          commissionRate: 0.2,
+          driverEarnings: 11500,
+          tip: -500,
+          fareSource: 'estimated',
+        }))
       );
     });
 

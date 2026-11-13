@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 import { getDriverTripHistory } from '../../services/tripService';
-import { calculateFareBreakdown, formatCurrency } from '../../utils/fareLogic';
+// AI-assisted: see docs/AI_LOG.md #27
+import { formatCurrency, getTripEarnings } from '../../utils/fareLogic';
 import { TRIP_STATUS } from '../../utils/tripLogic';
 
 export default function PaymentSummaryScreen({ uid }) {
@@ -17,6 +18,7 @@ export default function PaymentSummaryScreen({ uid }) {
     totalFare: 0,
     driverEarnings: 0,
     commission: 0,
+    tips: 0,
   });
 
   useEffect(() => {
@@ -29,15 +31,18 @@ export default function PaymentSummaryScreen({ uid }) {
         let totalFare = 0;
         let driverEarnings = 0;
         let commission = 0;
+        let tips = 0;
 
+        // AI-assisted: see docs/AI_LOG.md #27
         completedTrips.forEach(trip => {
-          const breakdown = calculateFareBreakdown(trip.estimatedFare || 0);
-          totalFare += breakdown.totalFare;
+          const breakdown = getTripEarnings(trip);
+          totalFare += breakdown.fare;
           driverEarnings += breakdown.driverEarnings;
-          commission += breakdown.uberCloneCommission;
+          commission += breakdown.commission;
+          tips += breakdown.tip;
         });
 
-        setTotals({ totalFare, driverEarnings, commission });
+        setTotals({ totalFare, driverEarnings, commission, tips });
       } catch (e) {
         console.error(e);
       } finally {
@@ -69,6 +74,10 @@ export default function PaymentSummaryScreen({ uid }) {
       <View style={styles.detailsCard}>
         <DetailRow label="Total viajes" value={formatCurrency(totals.totalFare)} />
         <DetailRow label="Comisión UberClone (20%)" value={`- ${formatCurrency(totals.commission)}`} isNegative />
+        {/* AI-assisted: see docs/AI_LOG.md #27 */}
+        {totals.tips > 0 ? (
+          <DetailRow label="Propinas (100 % para ti)" value={`+ ${formatCurrency(totals.tips)}`} />
+        ) : null}
         <View style={styles.divider} />
         <DetailRow label="Total a transferir" value={formatCurrency(totals.driverEarnings)} isTotal />
       </View>
