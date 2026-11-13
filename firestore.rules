@@ -181,6 +181,78 @@ service cloud.firestore {
             .data.get('isOnline', false) == true;
     }
 
+    // AI-assisted: see docs/AI_LOG.md #15
+    function validTripLocation(location) {
+      return location is map
+        && location.keys().hasAll([
+          'address', 'latitude', 'longitude'
+        ])
+        && location.get('address', null) is string
+        && location.address.size() > 0
+        && validCoordinate(location.get('latitude', null), 90)
+        && validCoordinate(location.get('longitude', null), 180);
+    }
+
+    function driverCanAcceptTrip(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && exists(/databases/$(database)/documents/drivers/$(uid))
+        && approvedAndRegistered(
+          get(/databases/$(database)/documents/drivers/$(uid)).data
+        )
+        && get(/databases/$(database)/documents/drivers/$(uid))
+          .data.get('isOnline', false) == true
+        && get(/databases/$(database)/documents/drivers/$(uid))
+          .data.documentsData.licenseExpiration is string
+        && get(/databases/$(database)/documents/drivers/$(uid))
+          .data.documentsData.soatExpiration is string
+        && timestamp.value(
+          get(/databases/$(database)/documents/drivers/$(uid))
+            .data.documentsData.licenseExpiration
+        ) > request.time
+        && timestamp.value(
+          get(/databases/$(database)/documents/drivers/$(uid))
+            .data.documentsData.soatExpiration
+        ) > request.time;
+    }
+
+    function validTripAcceptance() {
+      return request.auth != null
+        && resource.data.get('status', null) == 'pending'
+        && resource.data.get('driverId', 'missing') == null
+        && validTripLocation(resource.data.get('pickup', null))
+        && validTripLocation(resource.data.get('destination', null))
+        && resource.data.get('estimatedFare', null) is number
+        && resource.data.estimatedFare >= 0
+        && request.resource.data.get('status', null) == 'accepted'
+        && request.resource.data.get('driverId', null) == request.auth.uid
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly(['status', 'driverId'])
+        && driverCanAcceptTrip(request.auth.uid);
+    }
+
+    match /trips/{tripId} {
+      allow create, delete: if false;
+
+      allow get: if request.auth != null
+        && (
+          resource.data.get('driverId', null) == request.auth.uid
+          || (
+            resource.data.get('status', null) == 'pending'
+            && driverCanAcceptTrip(request.auth.uid)
+          )
+        );
+
+      allow list: if request.auth != null
+        && driverCanAcceptTrip(request.auth.uid)
+        && resource.data.get('status', null) == 'pending'
+        && request.query.limit != null
+        && request.query.limit <= 20;
+
+      allow update: if request.auth != null
+        && validTripAcceptance();
+    }
+
     match /driverLocations/{uid} {
 
       // Privada: solo su propietario puede leerla.
