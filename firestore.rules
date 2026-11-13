@@ -305,11 +305,23 @@ service cloud.firestore {
           )
         );
 
+      // AI-assisted: see docs/AI_LOG.md #18
       allow list: if request.auth != null
-        && driverCanAcceptTrip(request.auth.uid)
-        && resource.data.get('status', null) == 'pending'
         && request.query.limit != null
-        && request.query.limit <= 20;
+        && (
+          (
+            driverCanAcceptTrip(request.auth.uid)
+            && resource.data.get('status', null) == 'pending'
+            && request.query.limit <= 20
+          )
+          || (
+            resource.data.get('driverId', null) == request.auth.uid
+            && resource.data.get('status', null) in [
+              'accepted', 'in_progress'
+            ]
+            && request.query.limit <= 2
+          )
+        );
 
       // AI-assisted: see docs/AI_LOG.md #17
       allow update: if request.auth != null

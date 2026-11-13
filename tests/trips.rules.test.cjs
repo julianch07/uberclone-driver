@@ -179,6 +179,63 @@ test('Reglas de seguridad de viajes', async (t) => {
       await assertFails(getDocs(oversizedQuery));
     });
 
+    // AI-assisted: see docs/AI_LOG.md #18
+    await t.test('Permite recuperar viajes activos del conductor', async () => {
+      await seedDriver(environment, 'driver-recovery');
+
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-recovery'),
+          validTrip({
+            status: 'accepted',
+            driverId: 'driver-recovery',
+          })
+        );
+      });
+
+      const context = environment.authenticatedContext('driver-recovery');
+
+      const activeTripsQuery = query(
+        collection(context.firestore(), 'trips'),
+        where('driverId', '==', 'driver-recovery'),
+        where('status', 'in', ['accepted', 'in_progress']),
+        limit(2)
+      );
+
+      const snapshot = await assertSucceeds(getDocs(activeTripsQuery));
+
+      assert.equal(snapshot.docs.length, 1);
+      assert.equal(snapshot.docs[0].id, 'trip-recovery');
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #18
+    await t.test('No permite recuperar viajes de otro conductor ni estados finalizados', async () => {
+      await seedDriver(environment, 'driver-recovery-other');
+      const context = environment.authenticatedContext('driver-recovery-other');
+      const trips = collection(context.firestore(), 'trips');
+
+      await assertFails(getDocs(query(
+        trips,
+        where('driverId', '==', 'driver-recovery'),
+        where('status', 'in', ['accepted', 'in_progress']),
+        limit(2)
+      )));
+
+      await assertFails(getDocs(query(
+        trips,
+        where('driverId', '==', 'driver-recovery-other'),
+        where('status', '==', 'completed'),
+        limit(2)
+      )));
+
+      await assertFails(getDocs(query(
+        trips,
+        where('driverId', '==', 'driver-recovery-other'),
+        where('status', 'in', ['accepted', 'in_progress']),
+        limit(3)
+      )));
+    });
+
     await t.test('Solo un conductor puede aceptar el mismo viaje', async () => {
       await seedDriver(environment, 'driver-race-a');
       await seedDriver(environment, 'driver-race-b');

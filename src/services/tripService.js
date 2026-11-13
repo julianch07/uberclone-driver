@@ -2,14 +2,17 @@
 import {
   collection,
   doc,
+  getDocs,
   limit,
   onSnapshot,
   query,
   where,
 } from 'firebase/firestore';
+
 import { db } from '../config/firebase';
 import { TRIP_STATUS } from '../utils/tripLogic';
 import { acceptTripWithDatabase } from './tripAcceptance';
+
 // AI-assisted: see docs/AI_LOG.md #17
 import {
   startTripWithDatabase,
@@ -18,6 +21,38 @@ import {
 } from './tripLifecycle';
 
 const MAX_PENDING_TRIPS = 20;
+
+// AI-assisted: see docs/AI_LOG.md #18
+export async function findActiveDriverTrip(driverId, database = db) {
+  if (typeof driverId !== 'string' || !driverId.trim()) {
+    throw new Error('No se pudo identificar al conductor.');
+  }
+
+  const activeTripsQuery = query(
+    collection(database, 'trips'),
+    where('driverId', '==', driverId),
+    where('status', 'in', [
+      TRIP_STATUS.ACCEPTED,
+      TRIP_STATUS.IN_PROGRESS,
+    ]),
+    limit(2)
+  );
+
+  const snapshot = await getDocs(activeTripsQuery);
+
+  const trips = snapshot.docs.map((tripDocument) => ({
+    id: tripDocument.id,
+    ...tripDocument.data(),
+  }));
+
+  if (trips.length > 1) {
+    throw new Error(
+      'Se encontraron varios viajes activos para el conductor.'
+    );
+  }
+
+  return trips[0] ?? null;
+}
 
 export function subscribeToPendingTrips(onData, onError) {
   const pendingTripsQuery = query(
@@ -49,7 +84,6 @@ export function subscribeToPendingTrips(onData, onError) {
 export async function acceptTrip(tripId, driverId, database = db) {
   return acceptTripWithDatabase(database, tripId, driverId);
 }
-
 
 // AI-assisted: see docs/AI_LOG.md #16
 export function subscribeToActiveTrip(tripId, onData, onError) {
