@@ -16,6 +16,7 @@ import {
 } from '../services/tripService';
 import { isActiveDriverTrip } from '../utils/activeTripLogic';
 import { createActiveTripStorage } from '../utils/activeTripStorage';
+import { isCurrentTripRecovery } from '../utils/activeTripRecovery';
 
 const DriverContext = createContext(null);
 const tripStorage = createActiveTripStorage(AsyncStorage);
@@ -133,8 +134,16 @@ export function DriverProvider({ children, uid }) {
         setActiveTrip(null);
         setActiveTripId(null);
         setActiveTripLoading(true);
-        const valid = () =>
-          !cancelled && isCurrent(key, version) && selectedTripRef.current === null;
+        // AI-assisted: see docs/AI_LOG.md #19
+        // Reconciliation survives subscription cleanup, but not newer actions.
+        const valid = () => isCurrentTripRecovery({
+          mounted: mountedRef.current,
+          currentKey: identityRef.current,
+          expectedKey: key,
+          currentVersion: versionRef.current,
+          expectedVersion: version,
+          selectedTripId: selectedTripRef.current,
+        });
 
         async function reconcile() {
           try {

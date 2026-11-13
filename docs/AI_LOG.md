@@ -272,3 +272,18 @@ La inteligencia artificial se utilizó como herramienta de apoyo durante el desa
 - **Commit:** Pendiente de crear en la rama `fix/recuperacion-viaje-activo`.
 - **Verificación:** Se ejecutaron 59 pruebas unitarias, 1 prueba de integración y 69 pruebas de reglas de Firestore mediante el emulador: **129 aprobadas y 0 fallidas**. Las pruebas incluyen recuperación de viajes activos, protección de operaciones de almacenamiento y rechazo de consultas no autorizadas. `git diff --check` terminó sin observaciones en los archivos rastreados. Durante algunas pruebas negativas aparecieron mensajes `PERMISSION_DENIED` y errores de evaluación de reglas, que requieren revisión adicional. No se ha verificado todavía la recuperación manual después de reiniciar Expo Go ni el despliegue de las reglas y el índice en Firebase de producción.
 - **Aprendizaje:** La recuperación de estado debe combinar persistencia local con una fuente de verdad remota. Las operaciones asíncronas necesitan controles de vigencia e identidad para evitar que resultados antiguos sobrescriban estados recientes. Las reglas de Firestore deben impedir el acceso a viajes de otros conductores.
+
+### Entrada #19
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT (OpenAI).
+- **Objetivo:** Corregir el bloqueo de la interfaz en "Recuperando viaje activo..." después de finalizar un viaje.
+- **Prompt:** Diagnosticar y corregir el problema que ocurre cuando un conductor finaliza un viaje, Firestore actualiza correctamente su estado a `completed`, pero la aplicación permanece indefinidamente recuperando el viaje activo.
+- **Resumen de la respuesta:** Se identificó una condición de carrera en `DriverContext.js`. Al finalizar un viaje, la suscripción de Firestore detectaba que ya no estaba activo e iniciaba una reconciliación. Sin embargo, el cambio de `activeTripId` provocaba la limpieza de la suscripción y marcaba la operación como cancelada, impidiendo finalizar correctamente el estado de carga. Se separó la vigencia de la reconciliación de la cancelación de la suscripción, conservando las protecciones de identidad del conductor, versión de operación y selección de viajes.
+- **Qué se usó / modificó / descartó:** Se reutilizaron React Context API, Firestore, AsyncStorage y los mecanismos existentes de recuperación. Se creó una función auxiliar para validar la vigencia de las reconciliaciones y facilitar sus pruebas. No se agregaron dependencias ni se modificaron las reglas de seguridad.
+- **Archivos creados:** `src/utils/activeTripRecovery.js` y `tests/activeTripRecovery.test.cjs`.
+- **Archivos modificados:** `src/context/DriverContext.js`, `package.json` y `docs/AI_LOG.md`.
+- **Commit:** Pendiente de crear en la rama `fix/bloqueo-recuperacion-viaje`.
+- **Verificación:** Se ejecutó `npm run test:all` con 64 pruebas unitarias, 1 prueba de integración y 69 pruebas de reglas de Firestore: **134 aprobadas y 0 fallidas**. Las cinco pruebas nuevas verifican la vigencia de las reconciliaciones y su invalidación ante cambios de conductor, operaciones posteriores, selección de otro viaje o desmontaje del contexto. Durante las pruebas negativas de seguridad aparecieron mensajes `PERMISSION_DENIED` y errores de evaluación de reglas, pendientes de investigación. Falta comprobar manualmente en Expo Go que finalizar un viaje permita regresar a la recepción de solicitudes sin bloquear la interfaz.
+- **Aprendizaje:** La cancelación de una suscripción no necesariamente debe cancelar las operaciones asíncronas que inició. Separar sus ciclos de vida y validar la identidad y versión de cada operación ayuda a prevenir condiciones de carrera y estados de carga indefinidos.
