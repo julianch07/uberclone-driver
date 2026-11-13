@@ -20,7 +20,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test:unit": "node --test tests/availability.test.cjs tests/driverRegistration.test.cjs tests/location.test.cjs tests/tripLogic.test.cjs tests/activeTripLogic.test.cjs",
+    "test:unit": "node --test tests/availability.test.cjs tests/driverRegistration.test.cjs tests/location.test.cjs tests/tripLogic.test.cjs tests/activeTripLogic.test.cjs tests/activeTripStorage.test.cjs tests/activeTripService.test.cjs",
     "test:integration": "node --test tests/tripAcceptance.test.cjs",
     "test:rules": "node --test tests/firestore.rules.test.cjs tests/trips.rules.test.cjs",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:rules"
