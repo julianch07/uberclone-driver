@@ -1,8 +1,7 @@
-rules_version = '2';
 
-// Reglas de Firestore de UberClone Driver.
-// Se publican manualmente en Firebase Console (Firestore Database > Reglas).
-// Publicarlas reemplaza las reglas anteriores completas.
+rules_version = '2';
+// AI-assisted: see docs/AI_LOG.md #12
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -10,26 +9,163 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    function validImage(url) {
+      return url is string
+        && url.matches('^https://.+');
+    }
+
+    function validPersonalData(data) {
+      return data is map
+        && data.keys().hasAll([
+          'profilePhoto', 'fullName', 'identityDocument',
+          'phone', 'birthDate', 'gender', 'email', 'language'
+        ])
+        && validImage(data.get('profilePhoto', null))
+        && data.get('fullName', null) is string && data.get('fullName', null).size() > 0
+        && data.get('identityDocument', null) is string
+        && data.get('phone', null) is string
+        && data.get('birthDate', null) is string
+        && data.get('gender', null) is string
+        && data.get('email', null) is string
+        && data.get('email', null).matches('^[^@ ]+@[^@ ]+[.][^@ ]+$')
+        && data.get('language', null) is string;
+    }
+
+    function validVehicleData(data) {
+      return data is map
+        && data.keys().hasAll([
+          'vehiclePhoto', 'category', 'plate', 'make',
+          'model', 'year', 'color', 'passengerCapacity'
+        ])
+        && validImage(data.get('vehiclePhoto', null))
+        && data.get('category', null) is string
+        && data.get('plate', null) is string
+        && data.get('plate', null).matches('^[A-Z]{3}[0-9]{3}$')
+        && data.get('make', null) is string
+        && data.get('model', null) is string
+        && data.get('year', null) is string
+        && data.get('color', null) is string
+        && data.get('passengerCapacity', null) is string;
+    }
+
+    function validDocumentsData(data) {
+      return data is map
+        && data.keys().hasAll([
+          'licenseNumber', 'licensePhoto', 'licenseExpiration',
+          'soatPhoto', 'soatExpiration', 'mercadoPagoEmail',
+          'acceptedTerms'
+        ])
+        && validImage(data.get('licensePhoto', null))
+        && validImage(data.get('soatPhoto', null))
+        && data.get('licenseNumber', null) is string
+        && data.get('licenseExpiration', null) is string
+        && data.get('soatExpiration', null) is string
+        && data.get('mercadoPagoEmail', null) is string
+        && data.get('mercadoPagoEmail', null).matches('^[^@ ]+@[^@ ]+[.][^@ ]+$')
+        && data.get('acceptedTerms', null) == true;
+    }
+
+    function completeSections(data) {
+      return data is map
+        && validPersonalData(data.get('personalData', null))
+        && validVehicleData(data.get('vehicleData', null))
+        && validDocumentsData(data.get('documentsData', null));
+    }
+
+    function approvedAndRegistered(data) {
+      return data.get('approvalStatus', null) == 'approved'
+        && completeSections(data)
+        && data.get('registrationCompletedAt', null) is timestamp;
+    }
+
+    function validAvailabilityUpdate() {
+      return request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly([
+            'isOnline',
+            'availabilityUpdatedAt'
+          ])
+        && request.resource.data.get(
+          'availabilityUpdatedAt', null
+        ) == request.time
+        && request.resource.data.get('isOnline', null) is bool
+        && (
+          request.resource.data.isOnline == false
+          || approvedAndRegistered(request.resource.data)
+        );
+    }
+
+    function validRegistrationUpdate() {
+      return request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly([
+            'personalData',
+            'vehicleData',
+            'documentsData',
+            'isOnline',
+            'registrationCompletedAt',
+            'updatedAt'
+          ])
+        && request.resource.data.get('isOnline', false) == false
+        && completeSections(request.resource.data)
+        && request.resource.data.registrationCompletedAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function validLegacyRegistrationUpdate() {
+      return resource.data.get('approvalStatus', null) == null
+        && request.resource.data.approvalStatus == 'pending'
+        && request.resource.data.approvalRequestedAt == request.time
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly([
+            'personalData',
+            'vehicleData',
+            'documentsData',
+            'isOnline',
+            'registrationCompletedAt',
+            'updatedAt',
+            'approvalStatus',
+            'approvalRequestedAt'
+          ])
+        && request.resource.data.get('isOnline', false) == false
+        && completeSections(request.resource.data)
+        && request.resource.data.registrationCompletedAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
     match /drivers/{uid} {
-      // El conductor solo accede a su propio documento.
+
       allow read: if isOwner(uid);
 
-      // Al crearlo, el estado de aprobación solo puede ser "pending".
       allow create: if isOwner(uid)
-        && request.resource.data.approvalStatus == 'pending';
+        && request.resource.data.keys().hasOnly([
+          'personalData',
+          'vehicleData',
+          'documentsData',
+          'isOnline',
+          'registrationCompletedAt',
+          'approvalStatus',
+          'approvalRequestedAt',
+          'updatedAt'
+        ])
+        && request.resource.data.approvalStatus == 'pending'
+        && request.resource.data.approvalRequestedAt == request.time
+        && request.resource.data.isOnline == false
+        && completeSections(request.resource.data)
+        && request.resource.data.registrationCompletedAt == request.time
+        && request.resource.data.updatedAt == request.time;
 
-      // approvalStatus no puede cambiarlo el conductor. Solo se permite:
-      // - fijar "pending" en documentos antiguos que aún no tienen el campo;
-      // - conservar el valor existente en cualquier otra actualización.
-      // El cambio a "approved" o "rejected" se hace desde Firebase Console,
-      // que no está sujeta a estas reglas.
-      allow update: if isOwner(uid) && (
-        (resource.data.get('approvalStatus', null) == null
-          && request.resource.data.approvalStatus == 'pending')
-        ||
-        (resource.data.get('approvalStatus', null) != null
-          && request.resource.data.approvalStatus == resource.data.approvalStatus)
-      );
+      allow update: if isOwner(uid)
+        && (
+          resource.data.get('approvalStatus', null) == null
+            ? validLegacyRegistrationUpdate()
+            : (
+                request.resource.data.approvalStatus
+                  == resource.data.approvalStatus
+                && (
+                  validAvailabilityUpdate()
+                  || validRegistrationUpdate()
+                )
+              )
+        );
 
       allow delete: if false;
     }
