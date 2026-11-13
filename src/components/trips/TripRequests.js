@@ -3,6 +3,7 @@
 // AI-assisted: see docs/AI_LOG.md #16
 // AI-assisted: see docs/AI_LOG.md #17
 // AI-assisted: see docs/AI_LOG.md #18
+// AI-assisted: see docs/AI_LOG.md #20
 
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -14,6 +15,10 @@ import {
 } from 'react-native';
 
 import { useDriverContext } from '../../context/DriverContext';
+import {
+  getTripRequestRemainingSeconds,
+  isTripRequestExpired,
+} from '../../utils/tripRequestTimer';
 
 import {
   acceptTrip,
@@ -40,6 +45,8 @@ export default function TripRequests({ uid, enabled }) {
     activeTripLoading || Boolean(activeTripError);
 
   const [trips, setTrips] = useState([]);
+  const [timerNow, setTimerNow] = useState(() => Date.now());
+  const firstSeenRef = useRef(new Map());
   const [loading, setLoading] = useState(false);
   const [acceptingId, setAcceptingId] = useState(null);
   const [tripAction, setTripAction] = useState(null);
@@ -48,6 +55,19 @@ export default function TripRequests({ uid, enabled }) {
 
   // Prevent repeated taps before React updates the component.
   const acceptingRef = useRef(false);
+
+  // AI-assisted: see docs/AI_LOG.md #20
+  useEffect(() => {
+    if (!enabled || hasActiveTrip || tripRecoveryBlocked) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      setTimerNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [enabled, hasActiveTrip, tripRecoveryBlocked]);
 
   useEffect(() => {
     if (!enabled || hasActiveTrip || tripRecoveryBlocked) {
@@ -66,6 +86,15 @@ export default function TripRequests({ uid, enabled }) {
       (pendingTrips) => {
         if (cancelled) return;
 
+        const now = Date.now();
+
+        for (const trip of pendingTrips) {
+          if (!firstSeenRef.current.has(trip.id)) {
+            firstSeenRef.current.set(trip.id, now);
+          }
+        }
+
+        setTimerNow(now);
         setTrips(pendingTrips);
         setLoading(false);
       },
@@ -92,7 +121,8 @@ export default function TripRequests({ uid, enabled }) {
       !tripId ||
       acceptingRef.current ||
       hasActiveTrip ||
-      tripRecoveryBlocked
+      tripRecoveryBlocked ||
+      isTripRequestExpired(firstSeenRef.current.get(tripId))
     ) {
       return;
     }
@@ -152,6 +182,15 @@ export default function TripRequests({ uid, enabled }) {
       setTripAction(null);
     }
   };
+
+  // AI-assisted: see docs/AI_LOG.md #20
+  const visibleTrips = trips.filter(
+    (trip) =>
+      !isTripRequestExpired(
+        firstSeenRef.current.get(trip.id),
+        timerNow
+      )
+  );
 
   // Show the assigned trip or its recovery state.
   if (hasActiveTrip || activeTripLoading) {
@@ -358,7 +397,7 @@ export default function TripRequests({ uid, enabled }) {
         <Text style={styles.success}>{message}</Text>
       ) : null}
 
-      {!loading && !error && trips.length === 0 ? (
+      {!loading && !error && visibleTrips.length === 0 ? (
         <View style={styles.card}>
           <Text style={styles.title}>
             Sin solicitudes por ahora
@@ -371,7 +410,7 @@ export default function TripRequests({ uid, enabled }) {
         </View>
       ) : null}
 
-      {trips.map((trip) => (
+      {visibleTrips.map((trip) => (
         <View
           key={trip.id}
           style={styles.card}
@@ -398,6 +437,13 @@ export default function TripRequests({ uid, enabled }) {
             {typeof trip.estimatedFare === 'number'
               ? `$${trip.estimatedFare.toLocaleString('es-CO')}`
               : 'Por confirmar'}
+          </Text>
+
+          <Text style={styles.timer}>
+            Tiempo para aceptar: {getTripRequestRemainingSeconds(
+              firstSeenRef.current.get(trip.id),
+              timerNow
+            )} s
           </Text>
 
           <TouchableOpacity
@@ -487,6 +533,13 @@ const styles = StyleSheet.create({
 
   cancelButton: {
     backgroundColor: '#B42318',
+  },
+
+  timer: {
+    color: '#B42318',
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 16,
   },
 
   disabled: {
