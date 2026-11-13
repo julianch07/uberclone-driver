@@ -69,6 +69,14 @@ test('Impide aceptar si no existe un identificador de conductor', () => {
   assert.equal(canAcceptTrip(validTrip(), '', true), false);
 });
 
+// AI-assisted: see docs/AI_LOG.md #23
+test('Trata un viaje sin campo driverId como no asignado', () => {
+  const trip = validTrip();
+  delete trip.driverId;
+  assert.equal(isValidTrip(trip), true);
+  assert.equal(canAcceptTrip(trip, 'driver-1', true), true);
+});
+
 test('Impide aceptar un viaje previamente asignado', () => {
   const trip = validTrip({ status: 'accepted', driverId: 'driver-2' });
   assert.equal(canAcceptTrip(trip, 'driver-1', true), false);

@@ -212,8 +212,10 @@ service cloud.firestore {
         && driver.get('documentsData', null) is map
         && driver.documentsData.get('acceptedTerms', null) == true
         && driver.get('isOnline', false) == true
-        && driver.documentsData.licenseExpiration is string
-        && driver.documentsData.soatExpiration is string
+        && driver.documentsData.get('licenseExpiration', '') is string
+        && driver.documentsData.get('soatExpiration', '') is string
+        && driver.documentsData.licenseExpiration.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.*$')
+        && driver.documentsData.soatExpiration.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.*$')
         && timestamp.value(
           driver.documentsData.licenseExpiration
         ) > request.time
@@ -222,11 +224,15 @@ service cloud.firestore {
         ) > request.time;
     }
 
+    // AI-assisted: see docs/AI_LOG.md #23
+    // Un viaje sin el campo driverId (creado manualmente en la consola) se
+    // considera no asignado, igual que driverId == null. Un viaje con
+    // driverId asignado sigue sin poder aceptarse.
     function validTripAcceptance() {
       return request.auth != null
         && resource.data.get('status', null) == 'pending'
         && request.resource.data.get('status', null) == 'accepted'
-        && resource.data.get('driverId', 'missing') == null
+        && resource.data.get('driverId', null) == null
         && validTripLocation(resource.data.get('pickup', null))
         && validTripLocation(resource.data.get('destination', null))
         && resource.data.get('estimatedFare', null) is number
@@ -320,6 +326,16 @@ service cloud.firestore {
               'accepted', 'in_progress'
             ]
             && request.query.limit <= 2
+          )
+          // AI-assisted: see docs/AI_LOG.md #23
+          // Historial, ganancias y pagos: solo viajes finalizados propios,
+          // máximo 50 por consulta. No exige estar conectado.
+          || (
+            resource.data.get('driverId', null) == request.auth.uid
+            && resource.data.get('status', null) in [
+              'completed', 'cancelled'
+            ]
+            && request.query.limit <= 50
           )
         );
 
