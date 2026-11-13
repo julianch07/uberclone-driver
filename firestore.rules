@@ -1,6 +1,7 @@
 
 rules_version = '2';
 // AI-assisted: see docs/AI_LOG.md #12
+// AI-assisted: see docs/AI_LOG.md #13
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -129,6 +130,54 @@ service cloud.firestore {
         && completeSections(request.resource.data)
         && request.resource.data.registrationCompletedAt == request.time
         && request.resource.data.updatedAt == request.time;
+    }
+
+    function validCoordinate(value, limit) {
+      return value is number
+        && value >= -limit
+        && value <= limit;
+    }
+
+    // Ubicación publicada: exactamente latitud, longitud, precisión
+    // (número no negativo o null) y fecha del servidor.
+    function validDriverLocation(data) {
+      return data.keys().hasOnly([
+          'latitude', 'longitude', 'accuracy', 'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'latitude', 'longitude', 'accuracy', 'updatedAt'
+        ])
+        && validCoordinate(data.get('latitude', null), 90)
+        && validCoordinate(data.get('longitude', null), 180)
+        && (
+          data.get('accuracy', null) == null
+          || (data.get('accuracy', null) is number
+              && data.get('accuracy', null) >= 0)
+        )
+        && data.get('updatedAt', null) == request.time;
+    }
+
+    // Solo se publica ubicación si el documento drivers/{uid} existe, está
+    // aprobado y marcado como conectado.
+    function driverIsOnline(uid) {
+      return exists(/databases/$(database)/documents/drivers/$(uid))
+        && get(/databases/$(database)/documents/drivers/$(uid))
+            .data.get('approvalStatus', null) == 'approved'
+        && get(/databases/$(database)/documents/drivers/$(uid))
+            .data.get('isOnline', false) == true;
+    }
+
+    match /driverLocations/{uid} {
+
+      // Privada: solo su propietario puede leerla.
+      allow read: if isOwner(uid);
+
+      allow create, update: if isOwner(uid)
+        && driverIsOnline(uid)
+        && validDriverLocation(request.resource.data);
+
+      // El propietario puede borrar su propia ubicación al desconectarse.
+      allow delete: if isOwner(uid);
     }
 
     match /drivers/{uid} {
