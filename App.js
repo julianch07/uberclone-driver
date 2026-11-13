@@ -4,6 +4,8 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+// AI-assisted: see docs/AI_LOG.md #16
+import { DriverProvider } from './src/context/DriverContext';
 import RegistrationScreen from './src/screens/registration/RegistrationScreen';
 import DriverHomeScreen from './src/screens/home/DriverHomeScreen';
 import { getDriverRegistration } from './src/services/firestoreService';
@@ -50,6 +52,7 @@ export default function App() {
   return (
     <>
       <StatusBar style="dark" />
+      <DriverProvider key={driverUid || 'guest'} uid={driverUid}>
       {driverUid && screen === 'home' ? (
         <DriverHomeScreen uid={driverUid} onEditRegistration={() => setScreen('registration')} />
       ) : driverUid && screen === 'registration' ? (
@@ -62,6 +65,7 @@ export default function App() {
           </Text>
         </View>
       )}
+      </DriverProvider>
     </>
   );
 }

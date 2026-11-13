@@ -29,6 +29,8 @@ import TripRequests from '../../components/trips/TripRequests';
 import LocationPermission from '../../components/map/LocationPermission';
 import useDriverLocation from '../../hooks/useDriverLocation';
 import { PERMISSION } from '../../utils/locationLogic';
+// AI-assisted: see docs/AI_LOG.md #16
+import { useDriverContext } from '../../context/DriverContext';
 
 const TABS = [
   { key: 'home', label: 'Inicio' },
@@ -38,6 +40,7 @@ const TABS = [
 ];
 
 export default function DriverHomeScreen({ uid, onEditRegistration }) {
+  const { setIsOnline } = useDriverContext();
   const [tab, setTab] = useState('home');
   const [registration, setRegistration] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -108,6 +111,11 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
 
   const status = getApprovalStatus(registration);
   const online = Boolean(registration?.isOnline) && canConnect;
+
+  // Synchronize the driver's verified availability with global state.
+  useEffect(() => {
+    setIsOnline(online);
+  }, [online, setIsOnline]);
 
   // Seguimiento GPS: mientras se ve el mapa (pestaña Inicio) o mientras el
   // conductor está conectado. La ubicación solo se publica si está conectado
