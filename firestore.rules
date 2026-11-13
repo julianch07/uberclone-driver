@@ -79,6 +79,20 @@ service cloud.firestore {
         && data.get('registrationCompletedAt', null) is timestamp;
     }
 
+    // AI-assisted: see docs/AI_LOG.md #14
+    // Regulariza registros antiguos sin modificar datos ni aprobación.
+    function validLegacyCompletionMigration() {
+      return resource.data.get('registrationCompletedAt', null) == null
+        && resource.data.get('approvalStatus', null) == 'approved'
+        && resource.data.get('isOnline', false) == false
+        && completeSections(resource.data)
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly(['registrationCompletedAt'])
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasAll(['registrationCompletedAt'])
+        && request.resource.data.registrationCompletedAt == request.time;
+    }
+
     function validAvailabilityUpdate() {
       return request.resource.data.diff(resource.data)
           .affectedKeys().hasOnly([
@@ -212,6 +226,7 @@ service cloud.firestore {
                 && (
                   validAvailabilityUpdate()
                   || validRegistrationUpdate()
+                  || validLegacyCompletionMigration()
                 )
               )
         );

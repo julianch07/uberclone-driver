@@ -65,10 +65,17 @@ function validRegistration(status = 'pending') {
   };
 }
 
+// AI-assisted: see docs/AI_LOG.md #14
 async function seedDriver(uid, status, overrides = {}) {
   await environment.withSecurityRulesDisabled(async (context) => {
     const ref = doc(context.firestore(), 'drivers', uid);
-    await setDoc(ref, { ...validRegistration(status), ...overrides });
+    const registration = { ...validRegistration(status), ...overrides };
+
+    if (registration.registrationCompletedAt === undefined) {
+      delete registration.registrationCompletedAt;
+    }
+
+    await setDoc(ref, registration);
   });
 }
 
@@ -282,6 +289,90 @@ test('Reglas de seguridad de UberClone Driver', async (t) => {
       );
 
       assert.equal(snapshot.data().isOnline, false);
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #14
+    // ---- Compatibilidad con registros antiguos ----
+
+    await t.test('Registro antiguo: permite regularizar uno aprobado y completo', async () => {
+      const registration = validRegistration('approved');
+      registration.registrationCompletedAt = undefined;
+      await seedDriver('legacy-approved', 'approved', registration);
+
+      const ref = ownerRef('legacy-approved');
+
+      await assertSucceeds(updateDoc(ref, {
+        registrationCompletedAt: serverTimestamp(),
+      }));
+
+      const snapshot = await getDoc(ref);
+      assert.ok(snapshot.data().registrationCompletedAt);
+      assert.equal(snapshot.data().approvalStatus, 'approved');
+      assert.equal(snapshot.data().isOnline, false);
+
+      await assertSucceeds(updateDoc(ref, {
+        isOnline: true,
+        availabilityUpdatedAt: serverTimestamp(),
+      }));
+    });
+
+    await t.test('Registro antiguo: no permite conectarse antes de regularizar', async () => {
+      const registration = validRegistration('approved');
+      registration.registrationCompletedAt = undefined;
+      await seedDriver('legacy-no-connect', 'approved', registration);
+
+      await assertDeniedByRule(updateDoc(ownerRef('legacy-no-connect'), {
+        isOnline: true,
+        availabilityUpdatedAt: serverTimestamp(),
+      }));
+    });
+
+    await t.test('Registro antiguo: rechaza regularizar uno pendiente', async () => {
+      const registration = validRegistration('pending');
+      registration.registrationCompletedAt = undefined;
+      await seedDriver('legacy-pending', 'pending', registration);
+
+      await assertDeniedByRule(updateDoc(ownerRef('legacy-pending'), {
+        registrationCompletedAt: serverTimestamp(),
+      }));
+    });
+
+    await t.test('Registro antiguo: rechaza regularizar uno incompleto', async () => {
+      const registration = validRegistration('approved');
+      registration.registrationCompletedAt = undefined;
+      registration.personalData.fullName = '';
+      await seedDriver('legacy-incomplete', 'approved', registration);
+
+      await assertDeniedByRule(updateDoc(ownerRef('legacy-incomplete'), {
+        registrationCompletedAt: serverTimestamp(),
+      }));
+    });
+
+    await t.test('Registro antiguo: no permite cambiar la aprobacion', async () => {
+      const registration = validRegistration('approved');
+      registration.registrationCompletedAt = undefined;
+      await seedDriver('legacy-change-status', 'approved', registration);
+
+      await assertDeniedByRule(updateDoc(ownerRef('legacy-change-status'), {
+        registrationCompletedAt: serverTimestamp(),
+        approvalStatus: 'pending',
+      }));
+    });
+
+    await t.test('Registro antiguo: otro usuario no puede regularizarlo', async () => {
+      const registration = validRegistration('approved');
+      registration.registrationCompletedAt = undefined;
+      await seedDriver('legacy-other-owner', 'approved', registration);
+
+      const ref = doc(
+        environment.authenticatedContext('intruder').firestore(),
+        'drivers',
+        'legacy-other-owner'
+      );
+
+      await assertDeniedByRule(updateDoc(ref, {
+        registrationCompletedAt: serverTimestamp(),
+      }));
     });
 
     // ---- driverLocations/{uid} ----
