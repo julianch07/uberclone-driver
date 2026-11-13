@@ -60,14 +60,17 @@ export default function EarningsScreen({ uid }) {
     );
   }
 
-  return (
-    <View style={styles.container}>
+  // AI-assisted: see docs/AI_LOG.md #24
+  // El resumen va en ListHeaderComponent para que se desplace junto con la
+  // lista (la pantalla ya no está dentro de un ScrollView).
+  const listHeader = (
+    <>
       <View style={styles.summaryCard}>
         <Text style={styles.summaryLabel}>Tus Ganancias (80%)</Text>
         <Text style={styles.summaryValue}>{formatCurrency(totals.driverEarnings)}</Text>
-        
+
         <View style={styles.divider} />
-        
+
         <View style={styles.row}>
           <View style={styles.col}>
             <Text style={styles.miniLabel}>Total Recaudado</Text>
@@ -81,10 +84,15 @@ export default function EarningsScreen({ uid }) {
       </View>
 
       <Text style={styles.sectionTitle}>Historial de Ganancias</Text>
-      
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      
+    </>
+  );
+
+  return (
+    <View style={styles.container}>
       <FlatList
+        ListHeaderComponent={listHeader}
         data={trips}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
@@ -180,11 +188,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 10,
   },
+  // AI-assisted: see docs/AI_LOG.md #24
+  // El margen horizontal pasa a cada viaje para no duplicarlo en el
+  // encabezado de la lista (summaryCard ya tiene margin: 20).
   listContent: {
-    paddingHorizontal: 20,
     paddingBottom: 20,
   },
   tripItem: {
+    marginHorizontal: 20,
     backgroundColor: '#FFFFFF',
     padding: 16,
     borderRadius: 12,

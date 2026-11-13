@@ -1,8 +1,8 @@
 // AI-assisted: see docs/AI_LOG.md #12
 // AI-assisted: see docs/AI_LOG.md #7
 // AI-assisted: see docs/AI_LOG.md #3
+// AI-assisted: see docs/AI_LOG.md #24 (estilos de carga/error movidos a AppNavigator)
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 // AI-assisted: see docs/AI_LOG.md #16
 import { NavigationContainer } from '@react-navigation/native';
@@ -65,17 +65,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F6F8',
-  },
-  loadingText: {
-    marginTop: 14,
-    color: '#686868',
-    fontSize: 14,
-  },
-});

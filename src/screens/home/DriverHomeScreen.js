@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   ScrollView,
   StyleSheet,
   Text,
@@ -55,6 +56,25 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [disconnecting, setDisconnecting] = useState(false);
+
+  // AI-assisted: see docs/AI_LOG.md #24
+  // Botón "atrás" de Android: desde otra pestaña vuelve a Inicio en lugar
+  // de cerrar la aplicación.
+  useEffect(() => {
+    if (tab === 'home') {
+      return undefined;
+    }
+
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        setTab('home');
+        return true;
+      }
+    );
+
+    return () => subscription.remove();
+  }, [tab]);
 
   // Permite consultar nuevamente el registro de forma manual.
   const refresh = useCallback(async () => {
@@ -205,30 +225,85 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
       ? 'Tu registro o tus documentos necesitan actualización antes de conectarte.'
       : 'Controla cuándo estás disponible para recibir viajes.';
 
+  // AI-assisted: see docs/AI_LOG.md #24
+  // Encabezado común a todas las pestañas.
+  const header = (
+    <>
+      <Text style={styles.brand}>UBERCLONE DRIVER</Text>
+
+      <Text style={styles.heading}>
+        {tab === 'home'
+          ? `¡Hola, ${name.split(' ')[0]}!`
+          : TABS.find((item) => item.key === tab).label}
+      </Text>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#276EF1" />
+      ) : null}
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {message ? (
+        <Text style={styles.success}>{message}</Text>
+      ) : null}
+
+      {!loading && !registration ? (
+        <Action label="Reintentar" onPress={refresh} />
+      ) : null}
+    </>
+  );
+
+  // AI-assisted: see docs/AI_LOG.md #24
+  // Ganancias/Historial (FlatList) y Pagos/Perfil (ScrollView) gestionan su
+  // propio desplazamiento. Se renderizan fuera del ScrollView principal para
+  // no anidar listas virtualizadas en un ScrollView vertical
+  // ("VirtualizedLists should never be nested inside plain ScrollViews").
+  const tabOwnsScroll = tab === 'earnings' || tab === 'profile';
+
   return (
     <View style={styles.screen}>
+      {tabOwnsScroll ? (
+        <View style={styles.fill}>
+          <View style={styles.fixedHeader}>{header}</View>
+
+          {!loading && registration && tab === 'earnings' ? (
+            <View style={styles.fill}>
+              <View style={[styles.subTabs, styles.subTabsInset]}>
+                <TouchableOpacity
+                  style={[styles.subTab, subTab === 'summary' && styles.selectedSubTab]}
+                  onPress={() => setSubTab('summary')}
+                >
+                  <Text style={[styles.subTabText, subTab === 'summary' && styles.selectedSubTabText]}>Resumen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.subTab, subTab === 'payments' && styles.selectedSubTab]}
+                  onPress={() => setSubTab('payments')}
+                >
+                  <Text style={[styles.subTabText, subTab === 'payments' && styles.selectedSubTabText]}>Pagos</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.subTab, subTab === 'history' && styles.selectedSubTab]}
+                  onPress={() => setSubTab('history')}
+                >
+                  <Text style={[styles.subTabText, subTab === 'history' && styles.selectedSubTabText]}>Historial</Text>
+                </TouchableOpacity>
+              </View>
+
+              {subTab === 'summary' && <EarningsScreen uid={uid} />}
+              {subTab === 'payments' && <PaymentSummaryScreen uid={uid} />}
+              {subTab === 'history' && <TripHistoryScreen uid={uid} />}
+            </View>
+          ) : null}
+
+          {!loading && registration && tab === 'profile' ? (
+            <View style={styles.fill}>
+              <ProfileScreen uid={uid} onEditRegistration={onEditRegistration} />
+            </View>
+          ) : null}
+        </View>
+      ) : (
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.brand}>UBERCLONE DRIVER</Text>
-
-        <Text style={styles.heading}>
-          {tab === 'home'
-            ? `¡Hola, ${name.split(' ')[0]}!`
-            : TABS.find((item) => item.key === tab).label}
-        </Text>
-
-        {loading ? (
-          <ActivityIndicator size="large" color="#276EF1" />
-        ) : null}
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        {message ? (
-          <Text style={styles.success}>{message}</Text>
-        ) : null}
-
-        {!loading && !registration ? (
-          <Action label="Reintentar" onPress={refresh} />
-        ) : null}
+        {header}
 
         {!loading && registration && tab === 'home' ? (
           <>
@@ -324,13 +399,15 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Tu actividad</Text>
+              {/* AI-assisted: see docs/AI_LOG.md #24 */}
               <Text style={styles.muted}>
-                Las solicitudes de viajes estarán disponibles
-                en un próximo módulo.
+                {activeTrip
+                  ? 'Tienes un viaje activo. Consulta su estado y la ruta en Viajes.'
+                  : 'Consulta las solicitudes de viaje y tus ganancias.'}
               </Text>
 
               <Action
-                label="Ver viajes"
+                label={activeTrip ? 'Ver viaje activo' : 'Ver viajes'}
                 onPress={() => setTab('trips')}
               />
 
@@ -373,39 +450,8 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
           </>
         ) : null}
 
-        {!loading && registration && tab === 'earnings' ? (
-          <View style={{ flex: 1 }}>
-            <View style={styles.subTabs}>
-              <TouchableOpacity 
-                style={[styles.subTab, subTab === 'summary' && styles.selectedSubTab]} 
-                onPress={() => setSubTab('summary')}
-              >
-                <Text style={[styles.subTabText, subTab === 'summary' && styles.selectedSubTabText]}>Resumen</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.subTab, subTab === 'payments' && styles.selectedSubTab]} 
-                onPress={() => setSubTab('payments')}
-              >
-                <Text style={[styles.subTabText, subTab === 'payments' && styles.selectedSubTabText]}>Pagos</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.subTab, subTab === 'history' && styles.selectedSubTab]} 
-                onPress={() => setSubTab('history')}
-              >
-                <Text style={[styles.subTabText, subTab === 'history' && styles.selectedSubTabText]}>Historial</Text>
-              </TouchableOpacity>
-            </View>
-            
-            {subTab === 'summary' && <EarningsScreen uid={uid} />}
-            {subTab === 'payments' && <PaymentSummaryScreen uid={uid} />}
-            {subTab === 'history' && <TripHistoryScreen uid={uid} />}
-          </View>
-        ) : null}
-
-        {!loading && registration && tab === 'profile' ? (
-          <ProfileScreen uid={uid} onEditRegistration={onEditRegistration} />
-        ) : null}
       </ScrollView>
+      )}
 
       <View style={styles.tabs}>
         {TABS.map((item) => (
@@ -540,6 +586,17 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     color: '#276EF1',
+  },
+  // AI-assisted: see docs/AI_LOG.md #24
+  fill: {
+    flex: 1,
+  },
+  fixedHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 64,
+  },
+  subTabsInset: {
+    marginHorizontal: 20,
   },
   subTabs: {
     flexDirection: 'row',
