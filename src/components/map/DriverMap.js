@@ -1,3 +1,4 @@
+// AI-assisted: see docs/AI_LOG.md #21
 // AI-assisted: see docs/AI_LOG.md #13
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -9,7 +10,9 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { getDrivingRoute } from '../../services/routeService';
+import { getTripMapConfiguration } from '../../utils/tripMapLogic';
 
 const ZOOM_DELTA = 0.01;
 
@@ -29,10 +32,61 @@ function getMapProvider() {
 // position: { latitude, longitude, accuracy } con la ubicación GPS real.
 // No se dibuja el mapa hasta tener una posición real: no se inventan
 // coordenadas.
-export default function DriverMap({ position, loading, error }) {
+export default function DriverMap({ position, loading, error, activeTrip }) {
   const { height } = useWindowDimensions();
   const mapRef = useRef(null);
   const [following, setFollowing] = useState(true);
+  const [route, setRoute] = useState(null);
+  const [routeError, setRouteError] = useState(null);
+
+  const tripMap = getTripMapConfiguration(activeTrip, position);
+  const routeStart = tripMap?.routeStart;
+  const routeEnd = tripMap?.routeEnd;
+
+  // Redondeamos la posición para evitar una consulta por cada
+  // pequeño cambio del GPS (aproximadamente 100 metros).
+  const startKey = routeStart
+    ? `${routeStart.latitude.toFixed(3)},${routeStart.longitude.toFixed(3)}`
+    : null;
+
+  const endKey = routeEnd
+    ? `${routeEnd.latitude},${routeEnd.longitude}`
+    : null;
+
+  const routeKey = startKey && endKey
+    ? `${activeTrip?.id || activeTrip?.status}:${startKey}:${endKey}`
+    : null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setRoute(null);
+    setRouteError(null);
+
+    if (!routeKey || !routeStart || !routeEnd) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    getDrivingRoute(routeStart, routeEnd)
+      .then((result) => {
+        if (!cancelled) {
+          setRoute({ ...result, routeKey });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRouteError('No se pudo cargar la ruta por carretera.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // routeKey limita los recálculos al cambiar el trayecto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey]);
 
   const mapHeight = Math.max(220, Math.min(380, Math.round(height * 0.38)));
 
@@ -99,7 +153,48 @@ export default function DriverMap({ position, loading, error }) {
           }}
           title="Tu ubicación"
         />
+
+        {tripMap ? (
+          <>
+            <Marker
+              coordinate={tripMap.pickup}
+              title="Punto de recogida"
+              pinColor="#16A34A"
+            />
+            <Marker
+              coordinate={tripMap.destination}
+              title="Destino del pasajero"
+              pinColor="#DC2626"
+            />
+          </>
+        ) : null}
+
+        {route?.routeKey === routeKey &&
+        route?.coordinates?.length > 1 ? (
+          <Polyline
+            coordinates={route.coordinates}
+            strokeColor="#276EF1"
+            strokeWidth={5}
+          />
+        ) : null}
       </MapView>
+
+      {tripMap ? (
+        <View style={styles.routeInfo}>
+          <Text style={styles.routeInfoTitle}>
+            {tripMap.routeLabel}
+          </Text>
+          {route?.routeKey === routeKey ? (
+            <Text style={styles.routeInfoDetail}>
+              {(route.distanceMeters / 1000).toFixed(1)} km ·{' '}
+              {Math.ceil(route.durationSeconds / 60)} min aprox.
+            </Text>
+          ) : null}
+          {routeError ? (
+            <Text style={styles.routeInfoError}>{routeError}</Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <TouchableOpacity
         accessibilityRole="button"
@@ -144,6 +239,31 @@ const styles = StyleSheet.create({
     color: '#B42318',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  routeInfo: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    elevation: 3,
+  },
+  routeInfoTitle: {
+    color: '#172B4D',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  routeInfoDetail: {
+    color: '#276EF1',
+    marginTop: 3,
+    fontSize: 12,
+  },
+  routeInfoError: {
+    color: '#B42318',
+    marginTop: 3,
+    fontSize: 12,
   },
   recenter: {
     position: 'absolute',

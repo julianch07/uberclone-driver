@@ -212,11 +212,6 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 - **Verificación:** Se ejecutaron 40 pruebas de reglas de Firestore en el emulador, todas aprobadas; 20 pruebas de lógica GPS y ubicación, todas aprobadas; y 6 pruebas nuevas del servicio de disponibilidad, todas aprobadas. `npx expo-doctor` superó 20 de 20 comprobaciones. `npx expo export --platform ios` generó correctamente el paquete JavaScript de iOS. `git diff --check` terminó sin observaciones. Las pruebas del servicio utilizan Firebase simulado y no sustituyen una prueba real de integración. Las reglas nuevas aún no se han desplegado en Firebase de producción y la regularización automática todavía no se ha verificado en un iPhone físico. Algunos mensajes `evaluation error` del emulador siguen pendientes de investigación.
 - **Aprendizaje:** Los cambios de esquema deben considerar registros existentes. Una migración controlada puede preservar la aprobación y los datos del conductor, mientras las reglas limitan los campos modificables y verifican las condiciones de autorización.
 
-### Consideraciones generales
-
-La inteligencia artificial se utilizó como herramienta de apoyo durante el desarrollo del proyecto para orientar configuraciones, proponer estructuras, generar fragmentos de código y resolver dudas técnicas.
-
-
 ### Entrada #15
 
 - **Fecha:** 2026-11-13
@@ -303,3 +298,23 @@ La inteligencia artificial se utilizó como herramienta de apoyo durante el desa
 - **Verificación:** Se ejecutaron 139 pruebas automatizadas con `node --test tests/*.test.cjs`, todas aprobadas y ninguna fallida. Las cinco pruebas nuevas verifican el inicio, la disminución, la expiración y los límites del contador. Se ejecutó `npx expo export --platform ios` correctamente, generando el bundle de iOS con 735 módulos. En Expo Go se comprobó manualmente que una solicitud pendiente muestra la cuenta regresiva y desaparece después de 20 segundos.
 - **Limitaciones:** El temporizador comienza cuando el dispositivo observa la solicitud y no está sincronizado entre conductores ni respaldado por una fecha de expiración del servidor. Al reiniciar la aplicación, el plazo local puede comenzar nuevamente. Las solicitudes expiradas permanecen pendientes en Firestore hasta que otro proceso cambie su estado.
 - **Aprendizaje:** Separar la lógica temporal en funciones puras facilita las pruebas. Conservar la primera aparición de cada solicitud evita que las actualizaciones en tiempo real reinicien el contador. Para una solución de producción, la expiración debe controlarse también desde el servidor.
+
+### Entrada #21
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT (OpenAI).
+- **Objetivo:** Implementar la visualización de mapas y rutas del conductor durante los viajes.
+- **Prompt:** Integrar mapas en UberClone Driver, mostrando la ubicación del conductor, los puntos de recogida y destino, las rutas por carretera, la distancia y el tiempo estimado.
+- **Resumen de la respuesta:** Se implementó la visualización de rutas mediante un mapa interactivo y el servicio OSRM. Cuando el viaje está aceptado, la ruta conecta al conductor con el punto de recogida. Cuando está en curso, conecta al conductor con el destino. Se incorporaron marcadores y estimaciones de distancia y duración.
+- **Archivos creados:** `src/services/routeService.js`, `src/utils/tripMapLogic.js` y `tests/tripMapLogic.test.cjs`.
+- **Archivos modificados:** `src/components/map/DriverMap.js` y `src/screens/home/DriverHomeScreen.js`.
+- **Verificación:** Las 7 pruebas de lógica del mapa finalizaron correctamente. La exportación de iOS se completó sin errores. Se verificó manualmente la visualización de rutas en Expo Go.
+- **Limitaciones:** El servicio público de OSRM es adecuado para pruebas, pero no garantiza disponibilidad para producción. Persiste un error de permisos al aceptar solicitudes en Firebase real que requiere diagnóstico independiente.
+- **Aprendizaje:** Separar la lógica de rutas del componente visual facilita las pruebas y permite adaptar el recorrido al estado del viaje.
+- **Commit:** Pendiente.
+
+
+### Consideraciones generales
+
+La inteligencia artificial se utilizó como herramienta de apoyo durante el desarrollo del proyecto para orientar configuraciones, proponer estructuras, generar fragmentos de código y resolver dudas técnicas.
