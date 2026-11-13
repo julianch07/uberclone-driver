@@ -53,17 +53,25 @@ uberclone-driver/
 │   └── AI_LOG.md
 ├── src/
 │   ├── components/
+│   │   ├── map/
+│   │   ├── registration/
+│   │   └── trips/
 │   ├── config/
-│   ├── constants/
 │   ├── context/
 │   ├── hooks/
 │   ├── navigation/
 │   ├── screens/
+│   │   ├── home/
 │   │   └── registration/
 │   ├── services/
 │   └── utils/
+├── tests/
 ├── App.js
+├── app.config.js
 ├── app.json
+├── firebase.json
+├── firestore.indexes.json
+├── firestore.rules
 ├── index.js
 ├── package.json
 └── README.md
@@ -81,7 +89,25 @@ La aplicación utiliza Firebase Authentication con acceso anónimo, Firestore pa
 
 El registro se asocia al identificador único del conductor autenticado y permite recuperar la información guardada al volver a abrir la aplicación.
 
-La aplicación ya cuenta con control de disponibilidad del conductor y ubicación GPS en primer plano con mapa. La recepción y operación de viajes, el cálculo de ganancias y el historial de viajes siguen pendientes. La configuración nativa de Google Maps y las pruebas en dispositivo también están pendientes.
+Después del registro, la aplicación incluye:
+
+- **Aprobación del conductor:** todo registro queda `pending` y solo puede pasar a `approved` desde Firebase Console.
+- **Disponibilidad:** el conductor aprobado y con documentos vigentes puede conectarse y desconectarse.
+- **Ubicación GPS y mapa:** seguimiento en primer plano y publicación de la ubicación mientras el conductor está conectado.
+- **Solicitudes de viaje:** lista en tiempo real de viajes pendientes, con un plazo de 20 segundos para aceptarlos.
+- **Ciclo del viaje:** aceptar, iniciar, finalizar y cancelar viajes mediante transacciones de Firestore, con recuperación del viaje activo al reiniciar la aplicación.
+- **Ruta del viaje:** recorrido hasta el punto de recogida o el destino, calculado con el servicio público OSRM.
+- **Ganancias, pagos e historial:** resumen con comisión del 20 % para la plataforma y 80 % para el conductor, e historial de viajes completados y cancelados.
+- **Perfil:** datos del conductor, del vehículo y acceso a la edición del registro.
+
+Las reglas de `firestore.rules` restringen cada operación al conductor propietario y validan su estado. Las funcionalidades se verificaron en Expo Go.
+
+Limitaciones conocidas:
+
+- El plazo de 20 segundos se controla en el dispositivo; las solicitudes vencidas siguen pendientes en Firestore.
+- El historial consulta un máximo de 50 viajes finalizados.
+- El servicio público de OSRM es adecuado para pruebas, pero no garantiza disponibilidad en producción.
+- La configuración nativa de Google Maps en un *development build* está pendiente.
 
 
 ## Ubicación GPS y Google Maps
@@ -111,14 +137,23 @@ GOOGLE_MAPS_API_KEY=
 - **Expo Go en iOS:** Expo Go no incluye Google Maps; el mapa usa Apple Maps. Los permisos y el GPS funcionan igual.
 - **Development build:** usa la clave configurada y permite Google Maps en iOS y Android.
 
-### Pruebas
+## Pruebas
 
 ```bash
 npm run test:unit
-npx firebase-tools emulators:exec --only firestore "node --test tests/firestore.rules.test.cjs"
 ```
 
-La primera no necesita el emulador. La segunda ejecuta las reglas de Firestore en el emulador local y requiere Java.
+Las pruebas unitarias no necesitan el emulador. Las de integración y de reglas de Firestore se ejecutan contra el emulador local, que requiere Java:
+
+```bash
+npx firebase-tools emulators:start --only firestore
+```
+
+Con el emulador en ejecución, en otra terminal:
+
+```bash
+npm run test:all
+```
 
 ## Uso de IA
 

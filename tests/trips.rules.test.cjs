@@ -24,8 +24,9 @@ const {
   serverTimestamp,
 } = require('firebase/firestore');
 
-// AI-assisted: see docs/AI_LOG.md #23 (proyecto propio: evita que clearFirestore
-// de otro archivo de pruebas ejecutado en paralelo borre estos datos).
+// AI-assisted: see docs/AI_LOG.md #23
+// Proyecto propio: evita que clearFirestore de otro archivo de pruebas
+// ejecutado en paralelo borre estos datos.
 const PROJECT_ID = 'demo-uberclone-driver-trips';
 
 function validTrip(overrides = {}) {

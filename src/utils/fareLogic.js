@@ -1,5 +1,5 @@
-
-// AI-assisted: Fare logic for UberClone Driver
+// AI-assisted: see docs/AI_LOG.md #22
+// Fare logic for UberClone Driver
 // Commissions: 20% for UberClone, 80% for the driver.
 
 export const COMMISSIONS = {

@@ -11,7 +11,7 @@
 
 - **Fecha:** 2026-11-05
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Inicializar el proyecto UberClone Driver y configurar el entorno de desarrollo para comenzar su implementación.
 - **Prompt:** No se conserva el texto literal de la solicitud inicial. La configuración se realizó con acompañamiento de IA.
 - **Resumen de la respuesta:** Se proporcionó orientación para inicializar el proyecto con Expo, configurar el entorno de desarrollo y preparar el repositorio para trabajar con Git y GitHub.
@@ -26,7 +26,7 @@
 
 - **Fecha:** 2026-11-05
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Organizar la arquitectura del proyecto mediante una estructura modular que facilite el desarrollo y mantenimiento de la aplicación.
 - **Prompt:** No se conserva el texto literal de la solicitud original. Se solicitó orientación para organizar las carpetas y separar las responsabilidades del proyecto.
 - **Resumen de la respuesta:** Se propuso una estructura modular para organizar los componentes, pantallas, servicios, configuración y documentación.
@@ -41,7 +41,7 @@
 
 - **Fecha:** 2026-11-05
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Crear la estructura inicial del asistente de registro del conductor, organizando el proceso en diferentes pasos.
 - **Prompt:** No se conserva el texto literal de la solicitud original. Se solicitó ayuda para implementar el flujo inicial de registro.
 - **Resumen de la respuesta:** Se proporcionó una implementación inicial de un asistente de registro con dos pasos, un indicador de progreso y navegación entre las pantallas correspondientes.
@@ -56,7 +56,7 @@
 
 - **Fecha:** 2026-11-05
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Crear la documentación README para explicar el propósito del proyecto, las tecnologías utilizadas y las instrucciones básicas de instalación y ejecución.
 - **Prompt:** "que hago en readme"
 - **Resumen de la respuesta:** Se explicó la importancia del archivo README y se propuso una estructura para documentar el proyecto, sus tecnologías, instalación y ejecución.
@@ -71,12 +71,12 @@
 
 - **Fecha:** 2026-11-06
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Configurar Firebase en UberClone Driver e integrar los servicios iniciales de autenticación anónima y acceso a Firestore, utilizando variables de entorno para proteger la configuración.
 - **Prompt:** No existe una única solicitud literal que represente todo el proceso. Se realizaron varias consultas para configurar Firebase, instalar sus dependencias, preparar la persistencia de autenticación y organizar los servicios de conexión.
 - **Resumen de la respuesta:** Se proporcionaron instrucciones para crear un proyecto en Firebase, registrar una aplicación web, instalar Firebase SDK y AsyncStorage, configurar las variables de entorno e implementar la inicialización de Firebase, la autenticación y las operaciones básicas de Firestore.
 - **Qué se usó / modificó / descartó:** Se utilizó la configuración propuesta para crear el proyecto Firebase `uberclone-driver-8e0bf`, registrar la aplicación web, crear la base de datos Firestore en la región `southamerica-east1`, instalar Firebase SDK versión `13.2.0` y AsyncStorage, configurar las variables de entorno y habilitar la autenticación anónima. También se implementaron los servicios de autenticación y Firestore, y se integraron las pruebas iniciales en `App.js`.
-- **Archivos y commit:** `package.json`, `package-lock.json`, `.env.example`, `.gitignore`, `App.js`, `src/config/firebase.js`, `src/services/authService.js` y `src/services/firestoreService.js` — `8c2720d`. Mensaje: `feat: integrar Firebase y autenticación del conductor`. El archivo `.env` se configuró localmente y permanece excluido del repositorio.
+- **Archivos y commit:** `package.json`, `package-lock.json`, `.env.example`, `App.js`, `src/config/firebase.js`, `src/services/authService.js` y `src/services/firestoreService.js` — `8c2720d`. Mensaje: `feat: integrar Firebase y autenticación del conductor`. El archivo `.env` se configuró localmente y permanece excluido del repositorio. *Corrección (auditoría, entrada #26):* `.gitignore` no se modificó en este commit; la exclusión de `.env` ya existía desde `b6ee68e`.
 - **Verificación:** Se verificó la instalación de Firebase mediante `npm ls firebase`. Se habilitó el proveedor de autenticación anónima desde Firebase Console. Se inició Expo con `npx expo start --clear` y se comprobó desde Expo Go que la aplicación autenticó al conductor anónimamente. En la consola se obtuvo su UID y el mensaje `Conexión con Firestore verificada correctamente.`. También se comprobó la escritura, lectura y eliminación del campo de prueba en Firestore. Se verificó que `.env` permanece excluido de Git.
 - **Aprendizaje:** Se comprendió cómo inicializar Firebase en React Native, mantener la sesión de autenticación mediante AsyncStorage, separar los servicios de autenticación y Firestore, proteger las variables de entorno y comprobar las operaciones básicas de una base de datos desde la aplicación.
 
@@ -87,12 +87,12 @@
 
 - **Fecha:** 2026-11-06
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Implementar los formularios de datos personales y del vehículo del conductor, incorporando campos, selectores, selección de fotografías y validaciones para controlar el avance del proceso de registro.
 - **Prompt:** No existe una única solicitud literal que represente todo el proceso. Se realizaron varias consultas para desarrollar los componentes de registro, implementar las reglas de validación y conectar estas funcionalidades con la navegación entre los pasos.
 - **Resumen de la respuesta:** Se proporcionó orientación y código para implementar los componentes reutilizables de los formularios, organizar los datos mediante estados de React, seleccionar fotografías desde la cámara o galería y validar la información ingresada antes de permitir avanzar al siguiente paso.
 - **Qué se usó / modificó / descartó:** Se utilizaron las implementaciones propuestas para desarrollar los componentes `FormField`, `PersonalDataForm` y `VehicleDataForm`, así como las funciones de validación en `registrationValidation.js`. Se actualizaron las funciones de navegación y manejo de información en `RegistrationScreen.js`. La tercera pestaña de documentos y pagos se conserva como sección pendiente, de acuerdo con el alcance establecido para esta entrega.
-- **Archivos y commit:** `src/screens/registration/RegistrationScreen.js`, `src/components/registration/FormField.js`, `src/components/registration/PersonalDataForm.js`, `src/components/registration/VehicleDataForm.js` y `src/utils/registrationValidation.js`. **Commit:** `0e37d23` (`feat: implementar formularios y validaciones del conductor`).
+- **Archivos y commit:** `src/screens/registration/RegistrationScreen.js`, `src/components/registration/FormField.js`, `src/components/registration/PersonalDataForm.js`, `src/components/registration/VehicleDataForm.js` y `src/utils/registrationValidation.js`. *Corrección (auditoría, entrada #26):* el commit también modificó `app.json` (plugin `@react-native-community/datetimepicker`), `package.json` y `package-lock.json` (dependencias `@react-native-community/datetimepicker` 9.2.1, `@react-native-picker/picker` 2.11.4 y `expo-image-picker` ~58.0.10). **Commit:** `0e37d23` (`feat: implementar formularios y validaciones del conductor`).
 - **Verificación:** Se ejecutó la aplicación mediante Expo Go y se comprobó la navegación entre los pasos. Se probaron las validaciones de datos personales y del vehículo, incluyendo campos obligatorios, formato de placa, año del vehículo y capacidad mínima para la categoría XL. Se comprobó que los mensajes de error aparezcan debajo de los campos y que la aplicación impida avanzar cuando la información no cumple las reglas establecidas.
 - **Aprendizaje:** Se comprendió cómo separar los formularios en componentes reutilizables, manejar información mediante `useState`, validar datos antes de avanzar en un asistente de registro y proporcionar mensajes de error para orientar al usuario.
 
@@ -100,7 +100,7 @@
 
 - **Fecha:** 2026-11-06
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Integrar la subida de fotografías del conductor a Cloudinary y la persistencia de los datos personales y del vehículo en Firestore, permitiendo recuperar el registro al volver a abrir la aplicación.
 - **Prompt:** No existe una única solicitud literal que represente todo el proceso. Se realizaron consultas para configurar Cloudinary, integrar la autenticación con Firebase, implementar la persistencia del registro y solucionar la incompatibilidad de FormData durante la carga de imágenes en React Native.
 - **Resumen de la respuesta:** Se proporcionó orientación y código para implementar el servicio de subida de imágenes a Cloudinary, guardar y recuperar los datos mediante Firestore e integrar estas operaciones en el asistente de registro. Se adaptó el envío de fotografías utilizando la clase File de expo-file-system para resolver el error de compatibilidad de FormData.
@@ -113,9 +113,9 @@
 
 - **Fecha:** 2026-11-06
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Corregir el selector de fecha de nacimiento y aclarar visualmente que la tercera sección del registro está pendiente.
-- **Prompt:** Solicitud de revisión y corrección del formulario de datos personales y del indicador de pasos para la primera entrega.
+- **Prompt (resumen; no consta como texto literal):** Solicitud de revisión y corrección del formulario de datos personales y del indicador de pasos para la primera entrega.
 - **Resumen de la respuesta:** Se identificó el uso incorrecto de `onValueChange` en `DateTimePicker` y se indicó reemplazarlo por `onChange`. También se ajustó el texto de la tercera sección para mostrar explícitamente su estado pendiente.
 - **Qué se usó / modificó / descartó:** Se cambió el callback del selector de fecha y se modificó la etiqueta de la tercera sección, sin implementar documentos ni pagos porque están fuera del alcance de esta entrega.
 - **Archivos y commit:** `src/components/registration/PersonalDataForm.js` y `src/screens/registration/RegistrationScreen.js` — `cb9ac34`. Mensaje: `fix: corregir formulario y pasos del registro`.
@@ -126,7 +126,7 @@
 
 - **Fecha:** 2026-11-11
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Implementar la tercera sección del registro del conductor, correspondiente a documentos y pagos, e integrar su validación, almacenamiento y navegación con las secciones anteriores.
 - **Prompt:** No existe una única solicitud literal que represente todo el proceso. Se realizaron consultas para desarrollar el formulario de documentos y pagos, integrar sus datos con Firestore y Cloudinary, implementar las validaciones y permitir la navegación entre las tres secciones.
 - **Resumen de la respuesta:** Se proporcionó orientación y código para crear el componente `DocumentsPaymentsForm`, validar los datos y documentos requeridos, incorporar la aceptación de términos y condiciones, guardar la información del registro y permitir navegar entre las secciones.
@@ -136,8 +136,6 @@
 - **Verificación:** Se ejecutó `npx expo export --platform ios` y la exportación terminó correctamente. Desde Expo Go se comprobó la visualización y navegación entre las tres secciones, las validaciones de campos obligatorios, el guardado exitoso del registro y la recuperación de los datos después de cerrar y volver a abrir la aplicación.
 - **Aprendizaje:** Se comprendió cómo ampliar un asistente de registro con nuevos componentes, centralizar las validaciones por sección, integrar fotografías y datos adicionales en los servicios de persistencia y controlar la navegación sin perder la información guardada.
 
-
-Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
 
 ### Entrada #10
 
@@ -162,7 +160,7 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 - **Prompt:** "Tarea: implementar navegación entre las secciones del registro de UberClone Driver", con los requisitos funcionales, las restricciones técnicas y las verificaciones indicados en la solicitud.
 - **Resumen de la respuesta:** Se revisó la arquitectura existente. Los indicadores de sección ya eran pulsables y los datos viven en el estado de `RegistrationScreen`, por lo que se conservaron. Se movió la regla de navegación a una función pura, se agregó el estado "Completa" o "Incompleta" a cada sección y se muestra un mensaje cuando se redirige a una sección incompleta.
 - **Qué se usó / modificó / descartó:** Se creó `src/utils/registrationNavigation.js` con `getSectionCompletion` y `resolveStepNavigation`. Reglas: ir a la misma sección o a una anterior siempre es posible y no borra datos; ir a una sección posterior exige que las anteriores estén completas, y si no, se redirige a la primera incompleta con sus errores y un mensaje; la sección 3 incompleta puede abrirse, pero no se puede guardar el registro hasta cumplir sus validaciones. En `RegistrationScreen.js` se reemplazó la lógica de `handleStepPress` y se actualizó el indicador de pasos (verde y ✓ cuando está completa, azul la actual, etiqueta de estado y atributos de accesibilidad). No se modificaron las validaciones, la carga y el guardado en Firestore, la subida a Cloudinary, el estado de aprobación ni las reglas de Firestore, y no se agregaron dependencias. No se agregó guardado automático al cambiar de sección: los datos se conservan en pantalla y se persisten al pulsar "Guardar registro".
-- **Archivos y commit:** `src/utils/registrationNavigation.js`, `src/screens/registration/RegistrationScreen.js` y `docs/AI_LOG.md`. Commit: `5748009` (`feat: mejorar navegacion entre secciones del registro`).
+- **Archivos y commit:** `src/utils/registrationNavigation.js`, `src/screens/registration/RegistrationScreen.js` y `docs/AI_LOG.md`. Commit: `5748009` (`feat: mejorar navegacion entre secciones del registro`). *Corrección (auditoría, entrada #26):* el commit también actualizó `expo` de `~58.0.24` a `~58.0.25` en `package.json` y `package-lock.json`; no se agregaron dependencias nuevas.
 - **Verificación:** Se ejecutó con Node una prueba de las funciones de `registrationNavigation.js` contra los validadores reales (completitud, navegación libre con todo completo, retroceso sin validar, redirección a la primera sección incompleta y entrada a la sección 3 incompleta); todas las aserciones pasaron. Se ejecutó `git diff --check` sin observaciones y `npx expo export --platform ios` terminó correctamente. `npx expo-doctor` pasó 18 de 20 comprobaciones; las 2 restantes no pudieron ejecutarse por falta de acceso a la red del entorno (API de Expo). No se probó en Expo Go ni contra Firebase o Cloudinary reales, y no se realizó una prueba automatizada de la interfaz. Esas comprobaciones quedan pendientes para el propietario.
 - **Aprendizaje:** Se comprendió que mantener los datos en el componente padre evita perder información al cambiar de sección, y que separar la regla de navegación en una función pura permite probarla sin ejecutar la aplicación.
 
@@ -173,7 +171,7 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 - **Integrante:** Julian Cardona
 - **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Crear el inicio del conductor, navegación interna y control de disponibilidad basado en aprobación.
-- **Prompt:** Implementar módulo 3 desde el ZIP actualizado, con Home, viajes y ganancias provisionales, perfil, acceso a edición del registro y control seguro de conexión.
+- **Prompt (resumen; no consta como texto literal):** Implementar módulo 3 desde el ZIP actualizado, con Home, viajes y ganancias provisionales, perfil, acceso a edición del registro y control seguro de conexión.
 - **Resumen de la respuesta:** Se implementó una pantalla de inicio con cuatro pestañas, integración con el registro persistido, lectura del estado de aprobación y disponibilidad guardada en Firestore mediante transacción. Se añadieron reglas de seguridad para impedir activar la disponibilidad sin aprobación. En una revisión posterior se separó el acceso al Home de la vigencia documental, se agregó un marcador de guardado exitoso y una confirmación antes de descartar cambios.
 - **Qué se usó / modificó / descartó:** Se reutilizó el flujo de autenticación y los validadores; no se incorporó Expo Router ni dependencias adicionales. Las secciones de viajes y ganancias quedan como pantallas provisionales.
 - **Archivos:** `App.js`, `src/screens/home/DriverHomeScreen.js`, `src/screens/registration/RegistrationScreen.js`, `src/services/availabilityService.js`, `src/services/firestoreService.js`, `src/utils/driverRegistration.js`, `firestore.rules`, `firebase.json`, `tests/firestore.rules.test.cjs`, `package.json`, `package-lock.json`, `.gitignore` y `docs/AI_LOG.md`.
@@ -200,15 +198,15 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 
 ### Entrada #14
 
-- **Fecha:** 2026-11-13
+- **Fecha:** 2026-11-13 (fecha declarada; el commit `a9c320f` tiene fecha 2026-11-12 22:16, UTC−05:00)
 - **Integrante:** Julian Cardona
 - **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Corregir la incompatibilidad de registros antiguos de conductores aprobados que no contienen `registrationCompletedAt`, sin alterar su aprobación ni debilitar las reglas de seguridad de Firestore.
-- **Prompt:** Solucionar el error `Missing or insufficient permissions` que impedía conectar a conductores antiguos aprobados, evitando modificar manualmente sus documentos en Firebase Console y manteniendo las restricciones de seguridad.
+- **Prompt (resumen; no consta como texto literal):** Solucionar el error `Missing or insufficient permissions` que impedía conectar a conductores antiguos aprobados, evitando modificar manualmente sus documentos en Firebase Console y manteniendo las restricciones de seguridad.
 - **Resumen de la respuesta:** Se implementó una regularización automática del campo `registrationCompletedAt` para registros antiguos aprobados y completos. La aplicación realiza una transacción para agregar únicamente el timestamp faltante y posteriormente otra transacción para actualizar la disponibilidad, comprobando nuevamente las condiciones de conexión.
 - **Qué se usó / modificó / descartó:** Se agregó `validLegacyCompletionMigration()` a `firestore.rules`, permitiendo exclusivamente al propietario de un registro antiguo, aprobado, completo y desconectado agregar `registrationCompletedAt` con la fecha del servidor. Se modificó `src/services/availabilityService.js` para efectuar la regularización antes de conectarse. Se ampliaron las pruebas de seguridad y se creó `tests/availability.test.cjs` con pruebas del servicio mediante dependencias simuladas. Se descartó volver a guardar los formularios completos o modificar manualmente los documentos de producción como solución general. No se agregaron dependencias.
 - **Archivos:** `firestore.rules`, `src/services/availabilityService.js`, `tests/firestore.rules.test.cjs`, `tests/availability.test.cjs` y `docs/AI_LOG.md`.
-- **Commit:** Pendiente de crear en la rama `fix/compatibilidad-registros-antiguos`.
+- **Commit:** `a9c320f` (`fix: compatibilizar registros antiguos aprobados`), rama `fix/compatibilidad-registros-antiguos`. Integrado en `main` mediante el Pull Request #13, merge `7d29445`.
 - **Verificación:** Se ejecutaron 40 pruebas de reglas de Firestore en el emulador, todas aprobadas; 20 pruebas de lógica GPS y ubicación, todas aprobadas; y 6 pruebas nuevas del servicio de disponibilidad, todas aprobadas. `npx expo-doctor` superó 20 de 20 comprobaciones. `npx expo export --platform ios` generó correctamente el paquete JavaScript de iOS. `git diff --check` terminó sin observaciones. Las pruebas del servicio utilizan Firebase simulado y no sustituyen una prueba real de integración. Las reglas nuevas aún no se han desplegado en Firebase de producción y la regularización automática todavía no se ha verificado en un iPhone físico. Algunos mensajes `evaluation error` del emulador siguen pendientes de investigación.
 - **Aprendizaje:** Los cambios de esquema deben considerar registros existentes. Una migración controlada puede preservar la aprobación y los datos del conductor, mientras las reglas limitan los campos modificables y verifican las condiciones de autorización.
 
@@ -216,13 +214,13 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 
 - **Fecha:** 2026-11-13
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT (OpenAI).
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Implementar el módulo de solicitudes y aceptación de viajes para conductores aprobados y conectados, incorporando lógica de validación, transacciones de Firestore y reglas de seguridad.
-- **Prompt:** Implementar el módulo de viajes de UberClone Driver, integrando solicitudes pendientes en tiempo real, aceptación segura por parte del conductor, validaciones de los datos del viaje y pruebas automatizadas.
+- **Prompt (resumen; no consta como texto literal):** Implementar el módulo de viajes de UberClone Driver, integrando solicitudes pendientes en tiempo real, aceptación segura por parte del conductor, validaciones de los datos del viaje y pruebas automatizadas.
 - **Resumen de la respuesta:** Se implementó el componente de solicitudes de viajes y se integró en la pestaña Viajes de la pantalla principal. Se desarrollaron servicios para consultar solicitudes pendientes y aceptar viajes mediante transacciones de Firestore. También se incorporaron funciones puras para validar viajes y sus estados, reglas de seguridad específicas y pruebas unitarias, de integración y de autorización.
 - **Qué se usó / modificó / descartó:** Se creó `src/components/trips/TripRequests.js`, que presenta solicitudes pendientes, origen, destino, tarifa estimada y permite aceptar viajes. Se crearon `src/services/tripService.js` para escuchar solicitudes en tiempo real y `src/services/tripAcceptance.js` para aceptar viajes mediante transacciones. Se creó `src/utils/tripLogic.js` con los estados `pending`, `accepted`, `in_progress`, `completed` y `cancelled`, además de funciones de validación y transición. Se ampliaron las reglas de `firestore.rules` para validar ubicaciones, tarifa, estado del viaje, identidad del conductor, aprobación, disponibilidad y vigencia documental. Se integró `TripRequests` en `DriverHomeScreen.js`. Se agregaron pruebas para registro, lógica de viajes, aceptación y reglas de seguridad. Se actualizaron los scripts de pruebas de `package.json` y se retiró `firebase-admin` de las dependencias de desarrollo. No se implementaron todavía el mapa de cada solicitud, el temporizador de aceptación ni el ciclo completo del viaje activo.
-- **Archivos:** Modificados: `firestore.rules`, `package.json`, `package-lock.json` y `src/screens/home/DriverHomeScreen.js`. Creados: `src/components/trips/TripRequests.js`, `src/services/tripAcceptance.js`, `src/services/tripService.js`, `src/utils/tripLogic.js`, `tests/driverRegistration.test.cjs`, `tests/tripAcceptance.test.cjs`, `tests/tripLogic.test.cjs` y `tests/trips.rules.test.cjs`.
-- **Commit:** Pendiente de crear.
+- **Archivos:** Modificados: `firestore.rules`, `package.json`, `src/screens/home/DriverHomeScreen.js` y `docs/AI_LOG.md`. *Corrección (auditoría, entrada #26):* el commit `a090c85` no modifica `package-lock.json` y su cambio en `package.json` se limita a los scripts de pruebas; `firebase-admin` no aparece en ningún commit del repositorio, por lo que su retirada no es verificable en el historial. Creados: `src/components/trips/TripRequests.js`, `src/services/tripAcceptance.js`, `src/services/tripService.js`, `src/utils/tripLogic.js`, `tests/driverRegistration.test.cjs`, `tests/tripAcceptance.test.cjs`, `tests/tripLogic.test.cjs` y `tests/trips.rules.test.cjs`.
+- **Commit:** `a090c85` (`feat: implementar solicitudes y aceptación de viajes`), rama `feat/modulo-viajes`. Integrado en `main` mediante el Pull Request #14, merge `561acc5`.
 - **Verificación:** Se ejecutaron 47 pruebas unitarias, 1 prueba de integración de aceptación de viajes y 55 pruebas de reglas de seguridad de Firestore: 103 aprobadas y 0 fallidas. La prueba de integración utilizó Firestore Emulator. Se ejecutó `npx expo export --platform ios` y se generó correctamente el bundle de iOS con 729 módulos y un tamaño de 3,5 MB. `git diff --check` terminó sin observaciones. Durante algunas pruebas negativas de seguridad aparecieron mensajes `PERMISSION_DENIED` y errores de evaluación de reglas; las pruebas verificaron los rechazos esperados, pero esos mensajes de evaluación quedan pendientes de investigación. No se considera verificado el despliegue de las nuevas reglas en Firebase de producción.
 - **Aprendizaje:** Las transacciones permiten evitar que dos conductores acepten simultáneamente una misma solicitud. La seguridad de los viajes debe protegerse en Firestore y no depender exclusivamente de las validaciones de la interfaz. La separación entre componentes, servicios y funciones puras facilita el mantenimiento y las pruebas del módulo.
 
@@ -230,27 +228,29 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 
 - **Fecha:** 2026-11-13
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Implementar Context API para centralizar el estado del conductor y gestionar la recuperación de viajes activos.
-- **Prompt:** Solicité continuar el desarrollo de UberClone Driver mediante la implementación de Context API, integrando el estado de conexión del conductor, los viajes aceptados y su persistencia.
+- **Prompt (resumen; no consta como texto literal):** Solicité continuar el desarrollo de UberClone Driver mediante la implementación de Context API, integrando el estado de conexión del conductor, los viajes aceptados y su persistencia.
 - **Resumen de la respuesta:** Se implementó DriverContext mediante React Context API, con estados para conexión, viaje activo, carga y errores. Se integró AsyncStorage para conservar el identificador del viaje aceptado y una suscripción a Firestore para sincronizar su información. Se conectó el contexto con App.js, DriverHomeScreen y TripRequests. También se incorporó una función para validar que un viaje activo pertenezca al conductor autenticado.
+- **Qué se usó / modificó / descartó (hechos verificables en el commit `a439abc`):** Se utilizaron React Context API, AsyncStorage (`@react-native-async-storage/async-storage`, ya instalado desde la entrada #5) y suscripciones de Firestore. No se agregaron dependencias: el cambio en `package.json` se limita al script `test:unit`.
 - **Archivos creados:** `src/context/DriverContext.js`, `src/utils/activeTripLogic.js` y `tests/activeTripLogic.test.cjs`.
 - **Archivos modificados:** `App.js`, `src/screens/home/DriverHomeScreen.js`, `src/components/trips/TripRequests.js`, `src/services/tripService.js` y `package.json`.
-- **Pruebas:** 52 pruebas unitarias aprobadas, incluyendo cinco nuevas para validar viajes activos. También se ejecutaron previamente una prueba de integración y 55 pruebas de reglas de Firestore, todas satisfactorias. La exportación iOS se completó correctamente.
+- **Verificación:** 52 pruebas unitarias aprobadas, incluyendo cinco nuevas para validar viajes activos. También se ejecutaron previamente una prueba de integración y 55 pruebas de reglas de Firestore, todas satisfactorias. La exportación iOS se completó correctamente.
 - **Limitaciones:** Queda pendiente verificar manualmente la recuperación del viaje después de reiniciar la aplicación y probar específicamente los fallos de AsyncStorage y de sincronización con Firestore.
-- **Commit:** `a439abc` (`feat: implementar contexto global del conductor y persistencia de viajes`).
+- **Commit:** `a439abc` (`feat: implementar contexto global del conductor y persistencia de viajes`), rama `feat/context-api`. Integrado en `main` mediante el Pull Request #15, merge `ca45895`.
+- **Aprendizaje:** Pendiente de completar por el integrante.
 
 ### Entrada #17
 
 - **Fecha:** 2026-11-13
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT (OpenAI).
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Implementar el ciclo de vida de los viajes del conductor, permitiendo iniciar, finalizar y cancelar viajes aceptados de manera segura.
-- **Prompt:** Continuar el desarrollo de UberClone Driver implementando las transiciones de estado de los viajes, sus servicios, reglas de seguridad, pruebas automatizadas e integración con la interfaz.
+- **Prompt (resumen; no consta como texto literal):** Continuar el desarrollo de UberClone Driver implementando las transiciones de estado de los viajes, sus servicios, reglas de seguridad, pruebas automatizadas e integración con la interfaz.
 - **Resumen de la respuesta:** Se implementaron operaciones transaccionales de Firestore para iniciar, finalizar y cancelar viajes. Se integraron estas operaciones en el servicio principal y se incorporaron botones en el componente de viajes, según el estado actual. Se ampliaron las reglas de seguridad para restringir las transiciones a los conductores asignados y proteger los campos modificables.
 - **Qué se usó / modificó / descartó:** Se creó `src/services/tripLifecycle.js` con funciones para gestionar las transiciones mediante `runTransaction` y `serverTimestamp`. Se modificó `src/services/tripService.js` para exponer las operaciones. Se actualizó `src/components/trips/TripRequests.js` para mostrar los botones "Iniciar viaje", "Finalizar viaje" y "Cancelar viaje", bloquear pulsaciones mientras se procesa una operación y presentar errores. Se ampliaron `firestore.rules` y `tests/trips.rules.test.cjs` para comprobar transiciones permitidas y rechazadas. Se optimizó la validación de aceptación para evitar superar el límite de expresiones del emulador de Firestore. Se reutilizaron `DriverContext` y las funciones existentes de `tripLogic.js`, sin crear pantallas nuevas ni agregar dependencias.
 - **Archivos:** Creado: `src/services/tripLifecycle.js`. Modificados: `src/services/tripService.js`, `src/components/trips/TripRequests.js`, `firestore.rules`, `tests/trips.rules.test.cjs` y `docs/AI_LOG.md`.
-- **Commit:** Pendiente de crear en la rama `feat/ciclo-vida-viajes`.
+- **Commit:** `ce6a048` (`feat: implementar ciclo de vida de viajes`), rama `feat/ciclo-vida-viajes`. Integrado en `main` mediante el Pull Request #17, merge `6e33cf2`.
 - **Verificación:** Se ejecutó `npm run test:all` con 52 pruebas unitarias, 1 de integración y 67 de reglas de Firestore: **120 aprobadas y 0 fallidas**. No se detectaron avisos del límite de 1000 expresiones de Firestore. Se ejecutó `npx expo export --platform all`, generando correctamente los paquetes JavaScript de iOS y Android. `git diff --check` terminó sin observaciones antes de la última verificación. Las operaciones todavía no se han probado manualmente en un dispositivo con viajes reales o de prueba, y las reglas modificadas aún no se han verificado en Firebase de producción.
 - **Aprendizaje:** Las transiciones de estado deben protegerse tanto en las transacciones del cliente como en las reglas de Firestore. Reutilizar el contexto global permite sincronizar el viaje activo sin duplicar su estado en otros componentes.
 
@@ -258,13 +258,13 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 
 - **Fecha:** 2026-11-13
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT (OpenAI).
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Implementar y fortalecer la recuperación automática de viajes activos del conductor después de reiniciar la aplicación, evitando inconsistencias entre Firestore, AsyncStorage y el estado global.
-- **Prompt:** Revisar y corregir el módulo de recuperación de viajes activos, incluyendo consultas seguras a Firestore, persistencia local, protección frente a condiciones de carrera, pruebas automatizadas y conservación de las funcionalidades existentes.
+- **Prompt (resumen; no consta como texto literal):** Revisar y corregir el módulo de recuperación de viajes activos, incluyendo consultas seguras a Firestore, persistencia local, protección frente a condiciones de carrera, pruebas automatizadas y conservación de las funcionalidades existentes.
 - **Resumen de la respuesta:** Se incorporó la búsqueda de viajes activos del conductor en Firestore, utilizando los estados `accepted` e `in_progress`. Se modificó `DriverContext` para recuperar el viaje guardado localmente o consultar Firestore cuando no existe una referencia válida. Se añadieron controles de identidad y versiones para impedir que operaciones asíncronas antiguas sobrescriban selecciones recientes. También se incorporó un módulo que serializa las operaciones de AsyncStorage por clave.
 - **Qué se usó / modificó / descartó:** Se reutilizaron Context API, Firebase, AsyncStorage y los servicios existentes. Se reforzó `TripRequests` para impedir la aceptación de nuevas solicitudes mientras se recupera o verifica un viaje activo. Se incorporaron reglas de seguridad para consultar únicamente viajes activos pertenecientes al conductor y un índice compuesto para respaldar la consulta. No se añadieron dependencias ni se reemplazó la arquitectura de navegación.
 - **Archivos:** Modificados: `firebase.json`, `firestore.rules`, `package.json`, `src/components/trips/TripRequests.js`, `src/context/DriverContext.js`, `src/services/tripService.js` y `tests/trips.rules.test.cjs`. Creados: `firestore.indexes.json`, `src/utils/activeTripStorage.js`, `tests/activeTripService.test.cjs` y `tests/activeTripStorage.test.cjs`.
-- **Commit:** Pendiente de crear en la rama `fix/recuperacion-viaje-activo`.
+- **Commit:** `3c69583` (`fix: corregir recuperacion de viajes activos`), rama `fix/recuperacion-viaje-activo`. Integrado en `main` mediante el Pull Request #18, merge `67a7f66`.
 - **Verificación:** Se ejecutaron 59 pruebas unitarias, 1 prueba de integración y 69 pruebas de reglas de Firestore mediante el emulador: **129 aprobadas y 0 fallidas**. Las pruebas incluyen recuperación de viajes activos, protección de operaciones de almacenamiento y rechazo de consultas no autorizadas. `git diff --check` terminó sin observaciones en los archivos rastreados. Durante algunas pruebas negativas aparecieron mensajes `PERMISSION_DENIED` y errores de evaluación de reglas, que requieren revisión adicional. No se ha verificado todavía la recuperación manual después de reiniciar Expo Go ni el despliegue de las reglas y el índice en Firebase de producción.
 - **Aprendizaje:** La recuperación de estado debe combinar persistencia local con una fuente de verdad remota. Las operaciones asíncronas necesitan controles de vigencia e identidad para evitar que resultados antiguos sobrescriban estados recientes. Las reglas de Firestore deben impedir el acceso a viajes de otros conductores.
 
@@ -272,14 +272,14 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 
 - **Fecha:** 2026-11-13
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT (OpenAI).
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Corregir el bloqueo de la interfaz en "Recuperando viaje activo..." después de finalizar un viaje.
-- **Prompt:** Diagnosticar y corregir el problema que ocurre cuando un conductor finaliza un viaje, Firestore actualiza correctamente su estado a `completed`, pero la aplicación permanece indefinidamente recuperando el viaje activo.
+- **Prompt (resumen; no consta como texto literal):** Diagnosticar y corregir el problema que ocurre cuando un conductor finaliza un viaje, Firestore actualiza correctamente su estado a `completed`, pero la aplicación permanece indefinidamente recuperando el viaje activo.
 - **Resumen de la respuesta:** Se identificó una condición de carrera en `DriverContext.js`. Al finalizar un viaje, la suscripción de Firestore detectaba que ya no estaba activo e iniciaba una reconciliación. Sin embargo, el cambio de `activeTripId` provocaba la limpieza de la suscripción y marcaba la operación como cancelada, impidiendo finalizar correctamente el estado de carga. Se separó la vigencia de la reconciliación de la cancelación de la suscripción, conservando las protecciones de identidad del conductor, versión de operación y selección de viajes.
 - **Qué se usó / modificó / descartó:** Se reutilizaron React Context API, Firestore, AsyncStorage y los mecanismos existentes de recuperación. Se creó una función auxiliar para validar la vigencia de las reconciliaciones y facilitar sus pruebas. No se agregaron dependencias ni se modificaron las reglas de seguridad.
 - **Archivos creados:** `src/utils/activeTripRecovery.js` y `tests/activeTripRecovery.test.cjs`.
 - **Archivos modificados:** `src/context/DriverContext.js`, `package.json` y `docs/AI_LOG.md`.
-- **Commit:** Pendiente de crear en la rama `fix/bloqueo-recuperacion-viaje`.
+- **Commit:** `de962fb` (`fix: corregir bloqueo al recuperar viaje finalizado`), rama `fix/bloqueo-recuperacion-viaje`. Integrado en `main` mediante el Pull Request #19, merge `fb76c1c`.
 - **Verificación:** Se ejecutó `npm run test:all` con 64 pruebas unitarias, 1 prueba de integración y 69 pruebas de reglas de Firestore: **134 aprobadas y 0 fallidas**. Las cinco pruebas nuevas verifican la vigencia de las reconciliaciones y su invalidación ante cambios de conductor, operaciones posteriores, selección de otro viaje o desmontaje del contexto. Durante las pruebas negativas de seguridad aparecieron mensajes `PERMISSION_DENIED` y errores de evaluación de reglas, pendientes de investigación. Falta comprobar manualmente en Expo Go que finalizar un viaje permita regresar a la recepción de solicitudes sin bloquear la interfaz.
 - **Aprendizaje:** La cancelación de una suscripción no necesariamente debe cancelar las operaciones asíncronas que inició. Separar sus ciclos de vida y validar la identidad y versión de cada operación ayuda a prevenir condiciones de carrera y estados de carga indefinidos.
 
@@ -287,14 +287,14 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 
 - **Fecha:** 2026-11-13
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT (OpenAI).
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Implementar un temporizador de 20 segundos para aceptar solicitudes de viaje, evitando que el conductor acepte solicitudes después de agotarse el tiempo.
-- **Prompt:** Incorporar una cuenta regresiva de 20 segundos en las solicitudes pendientes de UberClone Driver, mostrar el tiempo restante, ocultar las solicitudes vencidas y evitar que las actualizaciones de Firestore reinicien el contador, conservando la funcionalidad existente.
+- **Prompt (resumen; no consta como texto literal):** Incorporar una cuenta regresiva de 20 segundos en las solicitudes pendientes de UberClone Driver, mostrar el tiempo restante, ocultar las solicitudes vencidas y evitar que las actualizaciones de Firestore reinicien el contador, conservando la funcionalidad existente.
 - **Resumen de la respuesta:** Se implementó una utilidad para calcular el tiempo restante y determinar cuándo expira una solicitud. Se integró un contador visible en `TripRequests.js`, actualizado periódicamente, que oculta las solicitudes al agotarse los 20 segundos. Se incorporó una validación adicional antes de aceptar un viaje y se conservaron los tiempos iniciales de cada solicitud para evitar reinicios por actualizaciones de Firestore.
 - **Qué se usó / modificó / descartó:** Se reutilizaron React Hooks, el componente de solicitudes y la suscripción existente a Firestore. La expiración se implementó localmente, sin cancelar ni modificar automáticamente los documentos de viajes pendientes en Firestore. No se añadieron dependencias ni se modificaron las reglas de seguridad.
 - **Archivos creados:** `src/utils/tripRequestTimer.js` y `tests/tripRequestTimer.test.cjs`.
 - **Archivos modificados:** `src/components/trips/TripRequests.js` y `docs/AI_LOG.md`.
-- **Commit:** Pendiente de crear en la rama `feat/temporizador-solicitudes`.
+- **Commit:** `8af239a` (`feat: implementar temporizador de solicitudes de viaje`), rama `feat/temporizador-solicitudes`. Integrado en `main` mediante el Pull Request #20, merge `7dd3317`.
 - **Verificación:** Se ejecutaron 139 pruebas automatizadas con `node --test tests/*.test.cjs`, todas aprobadas y ninguna fallida. Las cinco pruebas nuevas verifican el inicio, la disminución, la expiración y los límites del contador. Se ejecutó `npx expo export --platform ios` correctamente, generando el bundle de iOS con 735 módulos. En Expo Go se comprobó manualmente que una solicitud pendiente muestra la cuenta regresiva y desaparece después de 20 segundos.
 - **Limitaciones:** El temporizador comienza cuando el dispositivo observa la solicitud y no está sincronizado entre conductores ni respaldado por una fecha de expiración del servidor. Al reiniciar la aplicación, el plazo local puede comenzar nuevamente. Las solicitudes expiradas permanecen pendientes en Firestore hasta que otro proceso cambie su estado.
 - **Aprendizaje:** Separar la lógica temporal en funciones puras facilita las pruebas. Conservar la primera aparición de cada solicitud evita que las actualizaciones en tiempo real reinicien el contador. Para una solución de producción, la expiración debe controlarse también desde el servidor.
@@ -303,42 +303,46 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 
 - **Fecha:** 2026-11-13
 - **Integrante:** Julian Cardona
-- **Herramienta:** ChatGPT (OpenAI).
+- **Herramienta:** ChatGPT (OpenAI)
 - **Objetivo:** Implementar la visualización de mapas y rutas del conductor durante los viajes.
-- **Prompt:** Integrar mapas en UberClone Driver, mostrando la ubicación del conductor, los puntos de recogida y destino, las rutas por carretera, la distancia y el tiempo estimado.
+- **Prompt (resumen; no consta como texto literal):** Integrar mapas en UberClone Driver, mostrando la ubicación del conductor, los puntos de recogida y destino, las rutas por carretera, la distancia y el tiempo estimado.
 - **Resumen de la respuesta:** Se implementó la visualización de rutas mediante un mapa interactivo y el servicio OSRM. Cuando el viaje está aceptado, la ruta conecta al conductor con el punto de recogida. Cuando está en curso, conecta al conductor con el destino. Se incorporaron marcadores y estimaciones de distancia y duración.
 - **Archivos creados:** `src/services/routeService.js`, `src/utils/tripMapLogic.js` y `tests/tripMapLogic.test.cjs`.
-- **Archivos modificados:** `src/components/map/DriverMap.js` y `src/screens/home/DriverHomeScreen.js`.
+- **Archivos modificados:** `src/components/map/DriverMap.js`, `src/screens/home/DriverHomeScreen.js` y `docs/AI_LOG.md`.
+- **Qué se usó / modificó / descartó (hechos verificables en el commit `bf0b854`):** `src/services/routeService.js` consulta el servicio público OSRM (`https://router.project-osrm.org/route/v1/driving`) mediante `fetch`. `DriverMap` recibe el viaje activo desde `DriverContext` y la pestaña Viajes de `DriverHomeScreen` incorpora una tarjeta con el mapa del viaje. La lógica de puntos y tramos de la ruta se separó en `src/utils/tripMapLogic.js`, con pruebas en `tests/tripMapLogic.test.cjs`. No se agregaron dependencias: `package.json` no cambió en este commit.
 - **Verificación:** Las 7 pruebas de lógica del mapa finalizaron correctamente. La exportación de iOS se completó sin errores. Se verificó manualmente la visualización de rutas en Expo Go.
 - **Limitaciones:** El servicio público de OSRM es adecuado para pruebas, pero no garantiza disponibilidad para producción. Persiste un error de permisos al aceptar solicitudes en Firebase real que requiere diagnóstico independiente.
 - **Aprendizaje:** Separar la lógica de rutas del componente visual facilita las pruebas y permite adaptar el recorrido al estado del viaje.
-- **Commit:** Pendiente.
-
-
-### Consideraciones generales
+- **Commit:** `bf0b854` (`feat: implementar mapas y rutas de viajes del conductor`), rama `feat/rutas-mapa-viajes`. Integrado en `main` mediante el Pull Request #21, merge `ce80c52`.
 
 ### Entrada #22
 
 - **Fecha:** 2026-11-13
-- **Herramienta:** Gemini CLI
+- **Integrante:** Julian Cardona (autor del commit `3dc1673`).
+- **Herramienta:** Gemini CLI (Google)
 - **Objetivo:** Finalización del proyecto: sistema de tarifas, pantallas de ganancias, historial, perfil, pagos, navegación y corrección de permisos.
+- **Prompt:** No se conserva el texto literal.
 - **Resumen de la respuesta:** Se implementó el sistema de tarifas con comisión del 20% en `fareLogic.js`. Se crearon las pantallas de `EarningsScreen`, `TripHistoryScreen`, `ProfileScreen` y `PaymentSummaryScreen`. Se integró `react-navigation` para la gestión de pantallas. Se corrigieron las reglas de Firestore para manejar mejor los formatos de fecha en la aceptación de viajes.
-- **Archivos:** `src/utils/fareLogic.js`, `src/screens/home/EarningsScreen.js`, `src/screens/home/TripHistoryScreen.js`, `src/screens/home/ProfileScreen.js`, `src/screens/home/PaymentSummaryScreen.js`, `src/navigation/AppNavigator.js`, `App.js`, `src/screens/home/DriverHomeScreen.js`, `firestore.rules`, `src/services/tripService.js`.
-- **Verificación:** Se instalaron las dependencias de navegación. Se actualizaron las reglas de seguridad. Se verificó la exportación de iOS.
+- **Qué se usó / modificó / descartó (hechos verificables en el commit `3dc1673`, completados en la auditoría de la entrada #26):** Se agregaron las dependencias `@react-navigation/native` ^7.5.1, `@react-navigation/native-stack` ^7.21.0, `@react-navigation/bottom-tabs` ^7.21.0, `react-native-safe-area-context` ~5.11.1 y `react-native-screens` ~4.30.1. `fareLogic.js` calcula la comisión de la plataforma (20 %) y la ganancia del conductor (80 %). `AppNavigator.js` define un navegador de pila para registro e inicio y, además, los navegadores de pestañas `MainTabs` y `EarningsTabs`, que no llegaron a renderizarse. `App.js` pasa a usar `NavigationContainer` y `AppNavigator`. `DriverHomeScreen.js` incorpora las subpestañas Resumen, Pagos e Historial y la pestaña Perfil. `tripService.js` incorpora `getDriverTripHistory`, que consulta viajes `completed` y `cancelled` con límite 50. En `firestore.rules`, `driverCanAcceptTrip` exige que las fechas de vencimiento tengan formato ISO 8601 antes de compararlas.
+- **Archivos creados:** `src/utils/fareLogic.js`, `src/screens/home/EarningsScreen.js`, `src/screens/home/TripHistoryScreen.js`, `src/screens/home/ProfileScreen.js`, `src/screens/home/PaymentSummaryScreen.js` y `src/navigation/AppNavigator.js`.
+- **Archivos modificados:** `App.js`, `src/screens/home/DriverHomeScreen.js`, `firestore.rules`, `src/services/tripService.js`, `package.json`, `package-lock.json` y `docs/AI_LOG.md`.
+- **Commit:** `3dc1673` (`feat: agregar modulos financieros historial perfil y navegacion`), rama `feat/completar-modulos-conductor`. Integrado en `main` mediante el Pull Request #23, merge `7ee3ab0`.
+- **Verificación:** Se instalaron las dependencias de navegación. Se actualizaron las reglas de seguridad. Se verificó la exportación de iOS. No consta la ejecución de pruebas automatizadas para estos cambios.
+- **Incidencias posteriores:** La consulta de `getDriverTripHistory` no estaba autorizada por `firestore.rules`, lo que producía `Missing or insufficient permissions` en Historial, Ganancias y Pagos; se corrigió en la entrada #23. `DriverHomeScreen` anidaba listas virtualizadas dentro de un `ScrollView`, `AppNavigator` no usaba `loadError` y los navegadores de pestañas no se renderizaban; se corrigió en la entrada #24.
 - **Aprendizaje:** La integración de navegación profesional mejora la experiencia del usuario. Las reglas de Firestore deben ser extremadamente robustas con los formatos de datos.
 
 ### Entrada #23
 
 - **Fecha:** 2026-11-13
 - **Integrante:** Julian Cardona
-- **Herramienta:** Claude Code (Claude Opus 5.5, Anthropic).
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
 - **Objetivo:** Diagnosticar y corregir los errores `FirebaseError: Missing or insufficient permissions` que impedían completar el ciclo de viajes y consultar historial, ganancias y pagos.
-- **Prompt:** Investigar los errores de permisos de Firestore distinguiendo problemas de reglas, consultas, datos y despliegue; corregirlos manteniendo reglas restrictivas y compatibilidad con documentos existentes; añadir pruebas de reglas y de aceptación; no modificar datos reales ni desplegar reglas sin autorización.
+- **Prompt (resumen; el texto literal se conserva en la sesión de Claude Code):** Investigar los errores de permisos de Firestore distinguiendo problemas de reglas, consultas, datos y despliegue; corregirlos manteniendo reglas restrictivas y compatibilidad con documentos existentes; añadir pruebas de reglas y de aceptación; no modificar datos reales ni desplegar reglas sin autorización.
 - **Resumen de la respuesta:** Se reprodujeron los fallos en el emulador antes de corregirlos. (1) **Reglas/consulta:** `getDriverTripHistory` (usada por `TripHistoryScreen`, `EarningsScreen` y `PaymentSummaryScreen`) consulta `completed`/`cancelled` con límite 50, pero `allow list` solo autorizaba `accepted`/`in_progress` con límite 2; el emulador respondía `false for 'list'`. Se añadió una rama de lista exclusiva para viajes finalizados del propio conductor, con límite máximo de 50 y sin exigir conexión. (2) **Datos:** la regla de aceptación exigía que `driverId` existiera con valor `null`; un viaje creado en la consola sin ese campo pasaba la comprobación del cliente (`driverId != null`) pero era rechazado por las reglas. Ahora el campo ausente se trata como no asignado en reglas y en `tripLogic.js`. (3) **Mensajes:** `tripAcceptance.js` valida origen, destino y tarifa antes de escribir y muestra "La solicitud tiene datos incompletos o inválidos" en lugar del error de permisos. La transacción sigue modificando solo `status` y `driverId`, como exigen las reglas. Con las reglas anteriores y datos bien formados, aceptar, iniciar, finalizar y cancelar funcionaban en el emulador; si la aceptación falla en Firebase real, la causa está en las reglas publicadas o en los datos reales (ver pendientes).
 - **Qué se usó / modificó / descartó:** Se mantuvieron todas las validaciones de conductor (aprobación, registro, conexión, documentos vigentes) y de viaje. No se usó `allow read, write: if true`. Se descartó filtrar viajes mal formados de la lista de pendientes para no ocultar problemas de datos. Se descartó ejecutar `npx expo lint` porque el proyecto no tiene ESLint configurado y el comando instalaría dependencias nuevas. Las pruebas de viajes usan proyectos propios del emulador para que `clearFirestore()` de archivos ejecutados en paralelo no borre datos ajenos.
 - **Archivos creados:** `tests/tripCycle.integration.test.cjs`.
 - **Archivos modificados:** `firestore.rules`, `src/services/tripService.js`, `src/services/tripAcceptance.js`, `src/utils/tripLogic.js`, `tests/trips.rules.test.cjs`, `tests/tripAcceptance.test.cjs`, `tests/tripLogic.test.cjs`, `tests/activeTripService.test.cjs`, `package.json` (scripts de pruebas) y `docs/AI_LOG.md`.
-- **Commit:** `f5e70b3` en la rama `feat/completar-modulos-conductor`.
+- **Commit:** `f5e70b3`, rama `feat/completar-modulos-conductor`. Integrado en `main` mediante el Pull Request #23, merge `7ee3ab0`.
 - **Verificación:** `npm run test:all` con el emulador local: 79 pruebas unitarias, 11 de integración y 77 de reglas, **167 aprobadas y 0 fallidas** (línea base antes de los cambios: 134/134, sin cobertura del historial). La prueba de ciclo completo ejecutada contra las reglas anteriores falló en el historial (`false for 'list'`), y pasa con las nuevas. `npx expo export --platform ios` generó el bundle correctamente. `git diff --check` sin observaciones. Con autorización del integrante se ejecutó `npx firebase-tools deploy --only firestore:rules,firestore:indexes --project uberclone-driver-8e0bf` (2026-11-13): reglas compiladas y publicadas e índice de `trips` (`driverId`, `status`) desplegado, sin advertencias ni errores; `firestore:indexes` confirmó que el índice publicado coincide con el archivo local. El integrante confirmó en Expo Go que el error de permisos desapareció y que el ciclo de viajes, Ganancias, Pagos e Historial funcionan.
 - **Limitaciones:** El historial sin `orderBy` devuelve hasta 50 viajes finalizados sin garantía de ser los más recientes; se ordenan en el cliente. Un conductor con más de 50 viajes finalizados verá ganancias parciales.
 - **Aprendizaje:** Las reglas de Firestore no filtran resultados: cada consulta nueva necesita una regla que la autorice explícitamente, y conviene acompañarla de una prueba con la misma consulta del servicio. Firestore evalúa cada valor de un filtro `in` como una consulta separada, lo que debe tenerse en cuenta al diseñar pruebas negativas.
@@ -347,13 +351,50 @@ Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las func
 
 - **Fecha:** 2026-11-13
 - **Integrante:** Julian Cardona
-- **Herramienta:** Claude Code (Claude Opus 5.5, Anthropic).
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
 - **Objetivo:** Eliminar la causa de la advertencia `VirtualizedLists should never be nested inside plain ScrollViews with the same orientation` y auditar la navegación del conductor.
-- **Prompt:** Localizar listas virtualizadas anidadas en `ScrollView` verticales y corregir la estructura sin ocultar advertencias con `LogBox.ignoreLogs`; revisar `App.js`, `AppNavigator.js` y las pantallas del conductor para garantizar el acceso a Inicio, Ganancias, Historial, Perfil, Resumen de pagos y Viaje activo, sin alterar el registro ni la persistencia.
+- **Prompt (resumen; el texto literal se conserva en la sesión de Claude Code):** Localizar listas virtualizadas anidadas en `ScrollView` verticales y corregir la estructura sin ocultar advertencias con `LogBox.ignoreLogs`; revisar `App.js`, `AppNavigator.js` y las pantallas del conductor para garantizar el acceso a Inicio, Ganancias, Historial, Perfil, Resumen de pagos y Viaje activo, sin alterar el registro ni la persistencia.
 - **Resumen de la respuesta:** `DriverHomeScreen` envolvía todas sus pestañas en un único `ScrollView` vertical y dentro renderizaba `EarningsScreen` y `TripHistoryScreen` (ambas con `FlatList`), además de `PaymentSummaryScreen` y `ProfileScreen` (con su propio `ScrollView`). Ahora las pestañas Ganancias y Perfil se renderizan fuera del `ScrollView` principal, bajo un encabezado fijo, y cada pantalla gestiona su propio desplazamiento. Inicio y Viajes conservan el `ScrollView`. En `EarningsScreen` el resumen pasó a `ListHeaderComponent` para que se desplace junto con la lista. En la navegación se detectó que `AppNavigator` definía `MainTabs` y `EarningsTabs` que nunca se renderizaban (pantallas duplicadas) y que, desde el commit `3dc1673`, ignoraba `loadError`: si fallaba la consulta del registro se abría Inicio en lugar del mensaje de error. Se eliminaron los navegadores sin uso y se restauraron los estados de carga y error previos. También se añadió el manejo del botón "atrás" de Android (vuelve a Inicio desde otra pestaña en lugar de cerrar la app) y la tarjeta "Tu actividad" de Inicio ahora ofrece "Ver viaje activo" cuando existe uno, en lugar del texto obsoleto "estarán disponibles en un próximo módulo".
 - **Qué se usó / modificó / descartó:** No se usó `LogBox.ignoreLogs`. Se descartó migrar las pestañas propias a `@react-navigation/bottom-tabs` para no cambiar la interfaz confirmada antes de la entrega. La dependencia `@react-navigation/bottom-tabs` quedó sin uso, pero no se desinstaló para no modificar dependencias sin autorización. No se modificaron reglas, servicios, registro ni persistencia.
 - **Archivos modificados:** `src/screens/home/DriverHomeScreen.js`, `src/screens/home/EarningsScreen.js`, `src/navigation/AppNavigator.js`, `App.js` y `docs/AI_LOG.md`.
-- **Commit:** `3cb5eb2` en la rama `feat/completar-modulos-conductor`.
+- **Commit:** `3cb5eb2`, rama `feat/completar-modulos-conductor`. Integrado en `main` mediante el Pull Request #23, merge `7ee3ab0`.
 - **Verificación:** `npm run test:all`: 79 unitarias, 11 de integración y 77 de reglas, **167 aprobadas y 0 fallidas**. `npx expo-doctor`: 20/20 comprobaciones superadas. `npx expo export --platform ios`: bundle generado (987 módulos). `git diff --check` sin observaciones. El integrante confirmó en Expo Go que la advertencia ya no aparece y que Inicio, Viajes, Ganancias, Pagos, Historial y Perfil funcionan.
 - **Limitaciones:** No hay pruebas automatizadas de interfaz; la estructura de pantallas se verifica manualmente. Con el cambio de estructura, las tarjetas de Ganancias, Pagos, Historial y Perfil quedan alineadas con el encabezado (20 px de margen) en lugar del doble margen anterior.
 - **Aprendizaje:** Una pantalla con su propia `FlatList` no debe incrustarse dentro de un `ScrollView` vertical: además de la advertencia, la lista pierde la virtualización y renderiza todos sus elementos. El contenido fijo debe ir en `ListHeaderComponent`.
+
+### Entrada #25
+
+- **Fecha:** 2026-11-13 (fecha del commit; registro retrospectivo añadido en la auditoría de la entrada #26)
+- **Integrante:** Julian Cardona (autor del commit `df9b2a7`).
+- **Herramienta:** No verificable. No existe evidencia en el repositorio, en el commit ni en el Pull Request #22 que permita determinar si se utilizó una herramienta de IA ni cuál.
+- **Objetivo:** Validar la aceptación de viajes con datos representativos de un conductor real, en el contexto del error de permisos señalado en la entrada #21.
+- **Prompt:** No consta.
+- **Resumen del cambio (hechos verificables en el diff):** En la prueba de integración de `tests/tripAcceptance.test.cjs` se sustituyeron los datos del conductor y del viaje por valores fijos, descritos en el mensaje del commit como "datos representativos del conductor": fechas de vencimiento concretas (`2028-12-11T22:49:36.000Z` y `2029-02-15T22:49:51.000Z`) en lugar de fechas calculadas a cinco años, `registrationCompletedAt` fijo, otros datos personales y del vehículo, y otras direcciones y coordenadas de recogida y destino.
+- **Archivos modificados:** `tests/tripAcceptance.test.cjs`.
+- **Commit:** `df9b2a7` (`test: validar aceptacion con datos representativos del conductor`), rama `fix/permisos-aceptacion-viajes`. Integrado en `main` mediante el Pull Request #22, merge `ccffec8`. El Pull Request no tiene descripción.
+- **Verificación:** No consta.
+- **Observación:** Los datos representativos siguen en `tests/tripAcceptance.test.cjs` (reescrito en la entrada #23). No se añadió un comentario `AI-assisted` en el código porque no hay evidencia de asistencia de IA.
+
+### Entrada #26
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Auditar la trazabilidad del código y del uso de IA desde el primer commit hasta `main`, y corregir la documentación y los comentarios `AI-assisted` sin modificar la lógica funcional.
+- **Prompt (resumen; el texto literal se conserva en la sesión de Claude Code):** Auditar todos los archivos, commits, ramas y Pull Requests; construir una matriz de trazabilidad; comprobar los comentarios `AI-assisted` y todas las entradas de esta bitácora; completar los hashes pendientes; distinguir ChatGPT, Claude, Gemini CLI y Claude Code; marcar como no verificable lo que carezca de evidencia y no inventar prompts, autores, fechas ni resultados. Tras revisar el diagnóstico, el integrante autorizó las correcciones y decidió: registrar `df9b2a7` como no verificable, conservar la fecha de la entrada #14 con una nota, dejar pendiente el aprendizaje de la entrada #16, documentar solo hechos del diff en la entrada #21, actualizar `README.md` y añadir la referencia #22 en `tripService.js`.
+- **Resumen de la respuesta:** Se auditaron 75 archivos rastreados, 57 commits (34 de trabajo y 23 de fusión), 23 Pull Requests y 47 referencias de rama. No hay archivos eliminados ni renombrados y `.env` nunca se versionó. De 58 archivos de código, 43 tenían referencias correctas; en 12 faltaban referencias o eran incorrectas. El commit `be8ded2` había sustituido las referencias #3, #6, #7 y #8 de `RegistrationScreen.js` por un comentario sin número. Las entradas #14, #15 y #17 a #22 no tenían hash; la entrada #22 no tenía integrante, prompt, uso detallado ni commit; y varias entradas contenían inexactitudes en sus listas de archivos.
+- **Qué se usó / modificó / descartó:** Se añadieron o corrigieron referencias `AI-assisted` en 15 archivos de código y se verificó que todas las líneas modificadas en ellos son comentarios. No se añadió la referencia #8 en `RegistrationScreen.js` porque su cambio (etiqueta "pendiente" de la tercera sección) fue sustituido por la entrada #9. No se añadieron referencias en `index.js` ni en otros archivos de la plantilla de Expo. En esta bitácora se completaron los hashes y las fusiones, se completó la entrada #22 con hechos del diff, se corrigieron las listas de archivos de las entradas #5, #6, #11 y #15, se añadió una nota de fecha en la entrada #14, se marcaron como resumen los prompts que no constan como texto literal, se unificaron los nombres de las herramientas y se reorganizaron las consideraciones generales. Se actualizó `README.md` con las funcionalidades implementadas, la estructura real y el procedimiento de pruebas. No se reescribieron commits anteriores: los commits `f5e70b3`, `3cb5eb2` y `8cf42fd` conservan el trailer `Co-Authored-By` de Claude, coherente con las entradas #23 y #24.
+- **Archivos modificados:** `App.js`, `README.md`, `docs/AI_LOG.md`, `firestore.rules` (solo comentarios; no requiere volver a publicar las reglas), `src/components/registration/DocumentsPaymentsForm.js`, `src/components/registration/VehicleDataForm.js`, `src/screens/home/DriverHomeScreen.js`, `src/screens/home/EarningsScreen.js`, `src/screens/home/PaymentSummaryScreen.js`, `src/screens/home/ProfileScreen.js`, `src/screens/home/TripHistoryScreen.js`, `src/screens/registration/RegistrationScreen.js`, `src/services/firestoreService.js`, `src/services/tripService.js`, `src/utils/fareLogic.js`, `src/utils/registrationValidation.js` y `tests/trips.rules.test.cjs`.
+- **Commit:** Pendiente de la autorización del integrante.
+- **Verificación:** `npm run test:all` con el emulador local: 79 pruebas unitarias, 11 de integración y 77 de reglas, **167 aprobadas y 0 fallidas**; las pruebas de reglas compilan `firestore.rules` con los comentarios nuevos. `npx expo-doctor`: 20/20 comprobaciones superadas. `npx expo export --platform ios`: bundle generado (987 módulos). `git diff --check` sin observaciones. Un análisis automático del diff confirmó que en los archivos de código solo cambiaron comentarios.
+- **Aprendizaje:** La trazabilidad se pierde cuando un commit posterior sustituye referencias existentes o cuando una entrada no registra su commit. Cruzar cada archivo con los commits que lo modificaron y con las entradas de la bitácora permite detectar estas omisiones sin depender de la memoria del desarrollo.
+
+---
+
+## Consideraciones generales
+
+- Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
+- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24 y #26 se realizaron con Claude Code en el repositorio local.
+- Cuando un prompt no se conserva literalmente, el campo se identifica como resumen.
+- Los archivos generados por la plantilla de Expo (entrada #1) y por npm (`package-lock.json`) no constituyen código generado por IA.
+- Los commits de documentación `e7f8588`, `8748a20`, `f5ef7a9`, `04788d3`, `74b621a`, `3669693`, `8e6ef79`, `eff416b` y `8cf42fd` solo actualizan esta bitácora o el README; no consta el uso de IA en ellos.

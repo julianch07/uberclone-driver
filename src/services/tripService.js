@@ -121,7 +121,9 @@ export async function cancelTrip(tripId, driverId, database = db) {
   return cancelTripWithDatabase(database, tripId, driverId);
 }
 
+// AI-assisted: see docs/AI_LOG.md #22
 // AI-assisted: see docs/AI_LOG.md #23
+// Historial creado con Gemini CLI (#22) y reescrito con Claude Code (#23).
 // Debe coincidir con el límite de la regla de historial en firestore.rules.
 export const MAX_HISTORY_TRIPS = 50;
 

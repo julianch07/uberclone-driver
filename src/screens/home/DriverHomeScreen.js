@@ -1,5 +1,5 @@
 
- // AI-assisted: see docs/AI_LOG.md #12
+// AI-assisted: see docs/AI_LOG.md #12
 // AI-assisted: see docs/AI_LOG.md #13
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -26,6 +26,7 @@ import {
 import { setDriverAvailability } from '../../services/availabilityService';
 import { hasCompleteSavedRegistration } from '../../utils/driverRegistration';
 import DriverMap from '../../components/map/DriverMap';
+// AI-assisted: see docs/AI_LOG.md #15
 import TripRequests from '../../components/trips/TripRequests';
 import LocationPermission from '../../components/map/LocationPermission';
 import useDriverLocation from '../../hooks/useDriverLocation';
@@ -33,6 +34,7 @@ import { PERMISSION } from '../../utils/locationLogic';
 // AI-assisted: see docs/AI_LOG.md #16
 import { useDriverContext } from '../../context/DriverContext';
 
+// AI-assisted: see docs/AI_LOG.md #22
 // New Screens
 import EarningsScreen from './EarningsScreen';
 import ProfileScreen from './ProfileScreen';
@@ -49,6 +51,7 @@ const TABS = [
 export default function DriverHomeScreen({ uid, onEditRegistration }) {
   const { setIsOnline, activeTrip } = useDriverContext();
   const [tab, setTab] = useState('home');
+  // AI-assisted: see docs/AI_LOG.md #22
   const [subTab, setSubTab] = useState('summary'); // For earnings/payments
   const [registration, setRegistration] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -268,6 +271,7 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
 
           {!loading && registration && tab === 'earnings' ? (
             <View style={styles.fill}>
+              {/* AI-assisted: see docs/AI_LOG.md #22 */}
               <View style={[styles.subTabs, styles.subTabsInset]}>
                 <TouchableOpacity
                   style={[styles.subTab, subTab === 'summary' && styles.selectedSubTab]}
@@ -419,6 +423,7 @@ export default function DriverHomeScreen({ uid, onEditRegistration }) {
           </>
         ) : null}
 
+        {/* AI-assisted: see docs/AI_LOG.md #21 */}
         {!loading && registration && tab === 'trips' ? (
           <>
             <View style={styles.card}>
