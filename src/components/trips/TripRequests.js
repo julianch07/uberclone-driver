@@ -12,6 +12,9 @@ import {
 
 import {
   acceptTrip,
+  startTrip,
+  completeTrip,
+  cancelTrip,
   subscribeToPendingTrips,
 } from '../../services/tripService';
 
@@ -28,6 +31,8 @@ export default function TripRequests({ uid, enabled }) {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
   const [acceptingId, setAcceptingId] = useState(null);
+  // AI-assisted: see docs/AI_LOG.md #17
+  const [tripAction, setTripAction] = useState(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -84,6 +89,34 @@ export default function TripRequests({ uid, enabled }) {
     }
   };
 
+  // AI-assisted: see docs/AI_LOG.md #17
+  const handleTripAction = async (action, operation) => {
+    if (
+      tripAction ||
+      !activeTrip ||
+      !activeTripId ||
+      activeTripLoading
+    ) {
+      return;
+    }
+
+    setTripAction(action);
+    setError('');
+    setMessage('');
+
+    try {
+      await operation(activeTripId, uid);
+      // Firestore onSnapshot synchronizes the new trip status.
+    } catch (actionError) {
+      setError(
+        actionError.message ||
+          'No fue posible actualizar el estado del viaje.'
+      );
+    } finally {
+      setTripAction(null);
+    }
+  };
+
   if (hasActiveTrip || activeTripLoading) {
     return (
       <View style={styles.card}>
@@ -105,7 +138,9 @@ export default function TripRequests({ uid, enabled }) {
             <Text style={styles.value}>
               {activeTrip.status === 'accepted'
                 ? 'Aceptado'
-                : 'En curso'}
+                : activeTrip.status === 'in_progress'
+                  ? 'En curso'
+                  : activeTrip.status}
             </Text>
 
             <Text style={styles.label}>ORIGEN</Text>
@@ -124,7 +159,72 @@ export default function TripRequests({ uid, enabled }) {
                 ? `$${activeTrip.estimatedFare.toLocaleString('es-CO')}`
                 : 'Por confirmar'}
             </Text>
+
+            {activeTrip.status === 'accepted' ? (
+              <>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={[
+                    styles.button,
+                    tripAction !== null && styles.disabled,
+                  ]}
+                  disabled={tripAction !== null}
+                  onPress={() =>
+                    handleTripAction('start', startTrip)
+                  }
+                >
+                  <Text style={styles.buttonText}>
+                    {tripAction === 'start'
+                      ? 'Iniciando...'
+                      : 'Iniciar viaje'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={[
+                    styles.button,
+                    styles.cancelButton,
+                    tripAction !== null && styles.disabled,
+                  ]}
+                  disabled={tripAction !== null}
+                  onPress={() =>
+                    handleTripAction('cancel', cancelTrip)
+                  }
+                >
+                  <Text style={styles.buttonText}>
+                    {tripAction === 'cancel'
+                      ? 'Cancelando...'
+                      : 'Cancelar viaje'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+
+            {activeTrip.status === 'in_progress' ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[
+                  styles.button,
+                  tripAction !== null && styles.disabled,
+                ]}
+                disabled={tripAction !== null}
+                onPress={() =>
+                  handleTripAction('complete', completeTrip)
+                }
+              >
+                <Text style={styles.buttonText}>
+                  {tripAction === 'complete'
+                    ? 'Finalizando...'
+                    : 'Finalizar viaje'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </>
+        ) : null}
+
+        {error ? (
+          <Text style={styles.error}>{error}</Text>
         ) : null}
 
         {activeTripError ? (
@@ -256,6 +356,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 18,
+  },
+  cancelButton: {
+    backgroundColor: '#B42318',
   },
   disabled: {
     opacity: 0.45,

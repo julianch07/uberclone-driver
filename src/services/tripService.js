@@ -10,6 +10,12 @@ import {
 import { db } from '../config/firebase';
 import { TRIP_STATUS } from '../utils/tripLogic';
 import { acceptTripWithDatabase } from './tripAcceptance';
+// AI-assisted: see docs/AI_LOG.md #17
+import {
+  startTripWithDatabase,
+  completeTripWithDatabase,
+  cancelTripWithDatabase,
+} from './tripLifecycle';
 
 const MAX_PENDING_TRIPS = 20;
 
@@ -66,4 +72,17 @@ export function subscribeToActiveTrip(tripId, onData, onError) {
       }
     }
   );
+}
+
+// AI-assisted: see docs/AI_LOG.md #17
+export async function startTrip(tripId, driverId, database = db) {
+  return startTripWithDatabase(database, tripId, driverId);
+}
+
+export async function completeTrip(tripId, driverId, database = db) {
+  return completeTripWithDatabase(database, tripId, driverId);
+}
+
+export async function cancelTrip(tripId, driverId, database = db) {
+  return cancelTripWithDatabase(database, tripId, driverId);
 }

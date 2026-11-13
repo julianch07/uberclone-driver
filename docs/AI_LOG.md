@@ -244,3 +244,17 @@ La inteligencia artificial se utilizó como herramienta de apoyo durante el desa
 - **Pruebas:** 52 pruebas unitarias aprobadas, incluyendo cinco nuevas para validar viajes activos. También se ejecutaron previamente una prueba de integración y 55 pruebas de reglas de Firestore, todas satisfactorias. La exportación iOS se completó correctamente.
 - **Limitaciones:** Queda pendiente verificar manualmente la recuperación del viaje después de reiniciar la aplicación y probar específicamente los fallos de AsyncStorage y de sincronización con Firestore.
 - **Commit:** `a439abc` (`feat: implementar contexto global del conductor y persistencia de viajes`).
+
+### Entrada #17
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** ChatGPT (OpenAI).
+- **Objetivo:** Implementar el ciclo de vida de los viajes del conductor, permitiendo iniciar, finalizar y cancelar viajes aceptados de manera segura.
+- **Prompt:** Continuar el desarrollo de UberClone Driver implementando las transiciones de estado de los viajes, sus servicios, reglas de seguridad, pruebas automatizadas e integración con la interfaz.
+- **Resumen de la respuesta:** Se implementaron operaciones transaccionales de Firestore para iniciar, finalizar y cancelar viajes. Se integraron estas operaciones en el servicio principal y se incorporaron botones en el componente de viajes, según el estado actual. Se ampliaron las reglas de seguridad para restringir las transiciones a los conductores asignados y proteger los campos modificables.
+- **Qué se usó / modificó / descartó:** Se creó `src/services/tripLifecycle.js` con funciones para gestionar las transiciones mediante `runTransaction` y `serverTimestamp`. Se modificó `src/services/tripService.js` para exponer las operaciones. Se actualizó `src/components/trips/TripRequests.js` para mostrar los botones "Iniciar viaje", "Finalizar viaje" y "Cancelar viaje", bloquear pulsaciones mientras se procesa una operación y presentar errores. Se ampliaron `firestore.rules` y `tests/trips.rules.test.cjs` para comprobar transiciones permitidas y rechazadas. Se optimizó la validación de aceptación para evitar superar el límite de expresiones del emulador de Firestore. Se reutilizaron `DriverContext` y las funciones existentes de `tripLogic.js`, sin crear pantallas nuevas ni agregar dependencias.
+- **Archivos:** Creado: `src/services/tripLifecycle.js`. Modificados: `src/services/tripService.js`, `src/components/trips/TripRequests.js`, `firestore.rules`, `tests/trips.rules.test.cjs` y `docs/AI_LOG.md`.
+- **Commit:** Pendiente de crear en la rama `feat/ciclo-vida-viajes`.
+- **Verificación:** Se ejecutó `npm run test:all` con 52 pruebas unitarias, 1 de integración y 67 de reglas de Firestore: **120 aprobadas y 0 fallidas**. No se detectaron avisos del límite de 1000 expresiones de Firestore. Se ejecutó `npx expo export --platform all`, generando correctamente los paquetes JavaScript de iOS y Android. `git diff --check` terminó sin observaciones antes de la última verificación. Las operaciones todavía no se han probado manualmente en un dispositivo con viajes reales o de prueba, y las reglas modificadas aún no se han verificado en Firebase de producción.
+- **Aprendizaje:** Las transiciones de estado deben protegerse tanto en las transacciones del cliente como en las reglas de Firestore. Reutilizar el contexto global permite sincronizar el viaje activo sin duplicar su estado en otros componentes.

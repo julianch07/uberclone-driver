@@ -304,6 +304,76 @@ test('Reglas de seguridad de viajes', async (t) => {
       );
     });
 
+    // AI-assisted: see docs/AI_LOG.md #17
+    for (const scenario of [
+      {
+        name: 'sin registro completado',
+        overrides: { registrationCompletedAt: null },
+      },
+      {
+        name: 'pendiente de aprobación',
+        overrides: { approvalStatus: 'pending' },
+      },
+      {
+        name: 'sin documentos',
+        overrides: { documentsData: {} },
+      },
+      {
+        name: 'con datos personales incompletos',
+        overrides: {
+          personalData: {
+            ...validDriver().personalData,
+            fullName: '',
+          },
+        },
+      },
+      {
+        name: 'con placa inválida',
+        overrides: {
+          vehicleData: {
+            ...validDriver().vehicleData,
+            plate: '',
+          },
+        },
+      },
+      {
+        name: 'sin aceptar términos',
+        overrides: {
+          documentsData: {
+            ...validDriver().documentsData,
+            acceptedTerms: false,
+          },
+        },
+      },
+    ]) {
+      await t.test(
+        `Impide aceptar viajes a un conductor ${scenario.name}`,
+        async () => {
+          const id = `driver-invalid-${scenario.name.replaceAll(' ', '-')}`;
+          const tripId = `trip-invalid-${scenario.name.replaceAll(' ', '-')}`;
+
+          await seedDriver(environment, id, scenario.overrides);
+
+          await environment.withSecurityRulesDisabled(async (context) => {
+            await setDoc(
+              doc(context.firestore(), 'trips', tripId),
+              validTrip()
+            );
+          });
+
+          const context = environment.authenticatedContext(id);
+          const ref = doc(context.firestore(), 'trips', tripId);
+
+          await assertFails(
+            updateDoc(ref, {
+              status: 'accepted',
+              driverId: id,
+            })
+          );
+        }
+      );
+    }
+
     await t.test('Impide que otro conductor acepte un viaje asignado', async () => {
       await seedDriver(environment, 'driver-second');
 
@@ -430,6 +500,155 @@ test('Reglas de seguridad de viajes', async (t) => {
         updateDoc(ref, {
           status: 'accepted',
           driverId: 'driver-fare',
+          estimatedFare: 150000,
+        })
+      );
+    });
+
+
+    // AI-assisted: see docs/AI_LOG.md #17
+    await t.test('Permite iniciar un viaje al conductor asignado', async () => {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-start'),
+          validTrip({
+            status: 'accepted',
+            driverId: 'driver-lifecycle',
+          })
+        );
+      });
+
+      const context = environment.authenticatedContext('driver-lifecycle');
+      const ref = doc(context.firestore(), 'trips', 'trip-start');
+
+      await assertSucceeds(
+        updateDoc(ref, {
+          status: 'in_progress',
+          startedAt: serverTimestamp(),
+        })
+      );
+
+      const snapshot = await assertSucceeds(getDoc(ref));
+      assert.equal(snapshot.data().status, 'in_progress');
+      assert.ok(snapshot.data().startedAt);
+    });
+
+    await t.test('Permite finalizar un viaje iniciado', async () => {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-complete'),
+          validTrip({
+            status: 'in_progress',
+            driverId: 'driver-lifecycle',
+          })
+        );
+      });
+
+      const context = environment.authenticatedContext('driver-lifecycle');
+      const ref = doc(context.firestore(), 'trips', 'trip-complete');
+
+      await assertSucceeds(
+        updateDoc(ref, {
+          status: 'completed',
+          completedAt: serverTimestamp(),
+        })
+      );
+
+      const snapshot = await assertSucceeds(getDoc(ref));
+      assert.equal(snapshot.data().status, 'completed');
+      assert.ok(snapshot.data().completedAt);
+    });
+
+    await t.test('Permite cancelar un viaje aceptado', async () => {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-cancel'),
+          validTrip({
+            status: 'accepted',
+            driverId: 'driver-lifecycle',
+          })
+        );
+      });
+
+      const context = environment.authenticatedContext('driver-lifecycle');
+      const ref = doc(context.firestore(), 'trips', 'trip-cancel');
+
+      await assertSucceeds(
+        updateDoc(ref, {
+          status: 'cancelled',
+          cancelledAt: serverTimestamp(),
+        })
+      );
+
+      const snapshot = await assertSucceeds(getDoc(ref));
+      assert.equal(snapshot.data().status, 'cancelled');
+      assert.ok(snapshot.data().cancelledAt);
+    });
+
+
+    // AI-assisted: see docs/AI_LOG.md #17
+    await t.test('Impide iniciar un viaje de otro conductor', async () => {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-other-driver'),
+          validTrip({
+            status: 'accepted',
+            driverId: 'driver-owner',
+          })
+        );
+      });
+
+      const context = environment.authenticatedContext('driver-intruder');
+      const ref = doc(context.firestore(), 'trips', 'trip-other-driver');
+
+      await assertFails(
+        updateDoc(ref, {
+          status: 'in_progress',
+          startedAt: serverTimestamp(),
+        })
+      );
+    });
+
+    await t.test('Impide finalizar un viaje pendiente', async () => {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-invalid-complete'),
+          validTrip({
+            status: 'pending',
+            driverId: null,
+          })
+        );
+      });
+
+      const context = environment.authenticatedContext('driver-lifecycle');
+      const ref = doc(context.firestore(), 'trips', 'trip-invalid-complete');
+
+      await assertFails(
+        updateDoc(ref, {
+          status: 'completed',
+          completedAt: serverTimestamp(),
+        })
+      );
+    });
+
+    await t.test('Impide modificar la tarifa al iniciar un viaje', async () => {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-start-fare'),
+          validTrip({
+            status: 'accepted',
+            driverId: 'driver-lifecycle',
+          })
+        );
+      });
+
+      const context = environment.authenticatedContext('driver-lifecycle');
+      const ref = doc(context.firestore(), 'trips', 'trip-start-fare');
+
+      await assertFails(
+        updateDoc(ref, {
+          status: 'in_progress',
+          startedAt: serverTimestamp(),
           estimatedFare: 150000,
         })
       );
