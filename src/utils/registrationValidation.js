@@ -144,6 +144,7 @@ export function validateVehicleData(values) {
   return errors;
 }
 
+// AI-assisted: see docs/AI_LOG.md #9
 export function validateDocumentsPayments(values) {
   const errors = {};
 

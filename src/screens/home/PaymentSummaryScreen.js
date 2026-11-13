@@ -1,4 +1,4 @@
-
+// AI-assisted: see docs/AI_LOG.md #22
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,

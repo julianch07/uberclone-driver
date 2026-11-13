@@ -1,6 +1,7 @@
 
-// AI-assisted: see docs/AI_LOG.md #12
 // AI-assisted: see docs/AI_LOG.md #7
+// AI-assisted: see docs/AI_LOG.md #9
+// AI-assisted: see docs/AI_LOG.md #12
 import {
   doc,
   getDoc,
@@ -19,6 +20,7 @@ export async function saveDriverRegistration(
 ) {
   const driverRef = doc(db, 'drivers', uid);
 
+  // AI-assisted: see docs/AI_LOG.md #10
   // El estado de aprobación solo se escribe cuando el documento aún no lo
   // tiene. Después solo puede cambiarse desde Firebase Console (ver
   // firestore.rules), de modo que guardar de nuevo no lo reinicia.

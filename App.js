@@ -1,12 +1,15 @@
 // AI-assisted: see docs/AI_LOG.md #12
 // AI-assisted: see docs/AI_LOG.md #7
 // AI-assisted: see docs/AI_LOG.md #3
-// AI-assisted: see docs/AI_LOG.md #24 (estilos de carga/error movidos a AppNavigator)
+// AI-assisted: see docs/AI_LOG.md #24
+// Los estilos de carga y error se trasladaron a AppNavigator.
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-// AI-assisted: see docs/AI_LOG.md #16
+// AI-assisted: see docs/AI_LOG.md #22
 import { NavigationContainer } from '@react-navigation/native';
+// AI-assisted: see docs/AI_LOG.md #16
 import { DriverProvider } from './src/context/DriverContext';
+// AI-assisted: see docs/AI_LOG.md #22
 import AppNavigator from './src/navigation/AppNavigator';
 import {
   signInDriverAnonymously,

@@ -1,5 +1,8 @@
+// AI-assisted: see docs/AI_LOG.md #3
+// AI-assisted: see docs/AI_LOG.md #6
+// AI-assisted: see docs/AI_LOG.md #7
+// AI-assisted: see docs/AI_LOG.md #9
 // AI-assisted: see docs/AI_LOG.md #12
-// AI-assisted: see docs/AI_LOG.md
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -245,6 +248,7 @@ export default function RegistrationScreen({ uid, onRegistrationSaved, onBackToH
     setCurrentStep((previousStep) => previousStep + 1);
   };
 
+  // AI-assisted: see docs/AI_LOG.md #11
   const sectionCompletion = useMemo(
     () => getSectionCompletion([personalData, vehicleData, documentsData]),
     [personalData, vehicleData, documentsData]
@@ -460,6 +464,7 @@ export default function RegistrationScreen({ uid, onRegistrationSaved, onBackToH
         Completa los siguientes pasos para registrar tu información.
       </Text>
 
+      {/* AI-assisted: see docs/AI_LOG.md #10 */}
       {approvalStatus ? (
         <View
           style={[

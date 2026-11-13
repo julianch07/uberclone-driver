@@ -1,5 +1,5 @@
 
- // AI-assisted: see docs/AI_LOG.md #6
+// AI-assisted: see docs/AI_LOG.md #6
 import { useState } from 'react';
 import {
   Image,
