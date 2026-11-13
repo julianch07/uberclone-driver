@@ -32,9 +32,12 @@ export function isValidTrip(trip) {
     return false;
   }
 
+  // AI-assisted: see docs/AI_LOG.md #23
+  // driverId ausente (viaje creado en la consola) equivale a no asignado,
+  // igual que en firestore.rules.
   return (
     VALID_STATUSES.includes(trip.status) &&
-    (trip.driverId === null ||
+    (trip.driverId == null ||
       (typeof trip.driverId === 'string' && trip.driverId.trim().length > 0)) &&
     isValidLocation(trip.pickup) &&
     isValidLocation(trip.destination) &&
@@ -48,7 +51,7 @@ export function canAcceptTrip(trip, driverId, driverEligible) {
   return (
     isValidTrip(trip) &&
     trip.status === TRIP_STATUS.PENDING &&
-    trip.driverId === null &&
+    trip.driverId == null &&
     typeof driverId === 'string' &&
     driverId.trim().length > 0 &&
     driverEligible === true

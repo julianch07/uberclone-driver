@@ -16,7 +16,7 @@ function serviceWithDocs(docs) {
       id, data: () => data,
     })) }),
   };
-  const { findActiveDriverTrip } = loadModule('src/services/tripService.js', {
+  const { findActiveDriverTrip, getDriverTripHistory } = loadModule('src/services/tripService.js', {
     'firebase/firestore': firestore,
     '../config/firebase': { db: {} },
     './tripAcceptance': { acceptTripWithDatabase: () => {} },
@@ -26,8 +26,39 @@ function serviceWithDocs(docs) {
       cancelTripWithDatabase: () => {},
     },
   });
-  return { findActiveDriverTrip, calls };
+  return { findActiveDriverTrip, getDriverTripHistory, calls };
 }
+
+// AI-assisted: see docs/AI_LOG.md #23
+test('El historial consulta solo viajes finalizados propios con límite 50', async () => {
+  const { getDriverTripHistory, calls } = serviceWithDocs([
+    { id: 'old', status: 'completed', completedAt: { seconds: 100 } },
+    { id: 'cancel', status: 'cancelled', cancelledAt: { seconds: 300 } },
+    { id: 'new', status: 'completed', completedAt: { seconds: 200 } },
+  ]);
+
+  const history = await getDriverTripHistory('driver-1');
+
+  assert.deepEqual(history.map((trip) => trip.id), ['cancel', 'new', 'old']);
+  assert.deepEqual(calls.filter(x => x[0] === 'where'), [
+    ['where', 'driverId', '==', 'driver-1'],
+    ['where', 'status', 'in', ['completed', 'cancelled']],
+  ]);
+  assert.ok(calls.some(x => x[0] === 'limit' && x[1] === 50));
+});
+
+test('El historial nunca supera el límite permitido por las reglas', async () => {
+  const { getDriverTripHistory, calls } = serviceWithDocs([]);
+
+  await getDriverTripHistory('driver-1', 500);
+  await getDriverTripHistory('driver-1', 0);
+
+  assert.deepEqual(
+    calls.filter(x => x[0] === 'limit').map(x => x[1]),
+    [50, 1]
+  );
+  await assert.rejects(getDriverTripHistory('  '), /obligatorio/);
+});
 
 test('Consulta viajes activos solo del conductor y con límite 2', async () => {
   const { findActiveDriverTrip, calls } = serviceWithDocs([

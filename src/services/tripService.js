@@ -121,25 +121,48 @@ export async function cancelTrip(tripId, driverId, database = db) {
   return cancelTripWithDatabase(database, tripId, driverId);
 }
 
+// AI-assisted: see docs/AI_LOG.md #23
+// Debe coincidir con el límite de la regla de historial en firestore.rules.
+export const MAX_HISTORY_TRIPS = 50;
+
+function finishedAtSeconds(trip) {
+  return (trip.completedAt ?? trip.cancelledAt)?.seconds ?? 0;
+}
+
 /**
- * Fetches the trip history for a driver.
- * @param {string} driverId Driver UID.
- * @param {number} maxResults Maximum number of results.
- * @returns {Promise<Array>} List of trips.
+ * Historial de viajes finalizados (completados o cancelados) del conductor.
+ * Lo usan las pantallas de historial, ganancias y pagos.
+ * @param {string} driverId UID del conductor.
+ * @param {number} maxResults Máximo de resultados (1 a MAX_HISTORY_TRIPS).
+ * @returns {Promise<Array>} Viajes, del más reciente al más antiguo.
  */
-export async function getDriverTripHistory(driverId, maxResults = 50) {
-  if (!driverId) throw new Error('ID del conductor es obligatorio');
+export async function getDriverTripHistory(
+  driverId,
+  maxResults = MAX_HISTORY_TRIPS,
+  database = db
+) {
+  if (typeof driverId !== 'string' || !driverId.trim()) {
+    throw new Error('ID del conductor es obligatorio');
+  }
+
+  const historyLimit = Math.min(
+    Math.max(Math.trunc(Number(maxResults)) || 1, 1),
+    MAX_HISTORY_TRIPS
+  );
 
   const historyQuery = query(
-    collection(db, 'trips'),
+    collection(database, 'trips'),
     where('driverId', '==', driverId),
     where('status', 'in', [TRIP_STATUS.COMPLETED, TRIP_STATUS.CANCELLED]),
-    limit(maxResults)
+    limit(historyLimit)
   );
 
   const snapshot = await getDocs(historyQuery);
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })).sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+
+  return snapshot.docs
+    .map((tripDocument) => ({
+      id: tripDocument.id,
+      ...tripDocument.data(),
+    }))
+    .sort((a, b) => finishedAtSeconds(b) - finishedAtSeconds(a));
 }

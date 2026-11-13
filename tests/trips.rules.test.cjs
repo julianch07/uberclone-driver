@@ -24,7 +24,9 @@ const {
   serverTimestamp,
 } = require('firebase/firestore');
 
-const PROJECT_ID = 'demo-uberclone-driver';
+// AI-assisted: see docs/AI_LOG.md #23 (proyecto propio: evita que clearFirestore
+// de otro archivo de pruebas ejecutado en paralelo borre estos datos).
+const PROJECT_ID = 'demo-uberclone-driver-trips';
 
 function validTrip(overrides = {}) {
   return {
@@ -221,11 +223,14 @@ test('Reglas de seguridad de viajes', async (t) => {
         limit(2)
       )));
 
+      // AI-assisted: see docs/AI_LOG.md #23
+      // El límite de 50 del historial no puede usarse para leer viajes
+      // activos (Firestore evalúa cada valor de `in` por separado).
       await assertFails(getDocs(query(
         trips,
         where('driverId', '==', 'driver-recovery-other'),
-        where('status', '==', 'completed'),
-        limit(2)
+        where('status', 'in', ['accepted', 'completed']),
+        limit(50)
       )));
 
       await assertFails(getDocs(query(
@@ -235,6 +240,189 @@ test('Reglas de seguridad de viajes', async (t) => {
         limit(3)
       )));
     });
+
+    // AI-assisted: see docs/AI_LOG.md #23
+    await t.test('Permite consultar el historial propio de viajes finalizados', async () => {
+      await seedDriver(environment, 'driver-history', { isOnline: false });
+
+      await environment.withSecurityRulesDisabled(async (context) => {
+        const database = context.firestore();
+
+        await setDoc(
+          doc(database, 'trips', 'trip-history-completed'),
+          validTrip({
+            status: 'completed',
+            driverId: 'driver-history',
+            startedAt: new Date('2026-11-13T10:00:00.000Z'),
+            completedAt: new Date('2026-11-13T10:20:00.000Z'),
+          })
+        );
+        await setDoc(
+          doc(database, 'trips', 'trip-history-cancelled'),
+          validTrip({
+            status: 'cancelled',
+            driverId: 'driver-history',
+            cancelledAt: new Date('2026-11-13T11:00:00.000Z'),
+          })
+        );
+      });
+
+      // El historial debe consultarse aunque el conductor esté desconectado.
+      const context = environment.authenticatedContext('driver-history');
+
+      const snapshot = await assertSucceeds(getDocs(query(
+        collection(context.firestore(), 'trips'),
+        where('driverId', '==', 'driver-history'),
+        where('status', 'in', ['completed', 'cancelled']),
+        limit(50)
+      )));
+
+      assert.deepEqual(
+        snapshot.docs.map((trip) => trip.id).sort(),
+        ['trip-history-cancelled', 'trip-history-completed']
+      );
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #23
+    await t.test('Impide consultar historial ajeno, sin límite o mayor a 50', async () => {
+      await seedDriver(environment, 'driver-history-intruder');
+
+      const context = environment.authenticatedContext('driver-history-intruder');
+      const trips = collection(context.firestore(), 'trips');
+
+      // Historial de otro conductor.
+      await assertFails(getDocs(query(
+        trips,
+        where('driverId', '==', 'driver-history'),
+        where('status', 'in', ['completed', 'cancelled']),
+        limit(50)
+      )));
+
+      // Sin límite.
+      await assertFails(getDocs(query(
+        trips,
+        where('driverId', '==', 'driver-history-intruder'),
+        where('status', 'in', ['completed', 'cancelled'])
+      )));
+
+      // Límite superior al permitido.
+      await assertFails(getDocs(query(
+        trips,
+        where('driverId', '==', 'driver-history-intruder'),
+        where('status', 'in', ['completed', 'cancelled']),
+        limit(51)
+      )));
+
+      // Sin filtrar por conductor.
+      await assertFails(getDocs(query(
+        trips,
+        where('status', 'in', ['completed', 'cancelled']),
+        limit(50)
+      )));
+
+      // Mezclando estados finalizados con un estado activo.
+      await assertFails(getDocs(query(
+        trips,
+        where('driverId', '==', 'driver-history-intruder'),
+        where('status', 'in', ['completed', 'in_progress']),
+        limit(50)
+      )));
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #23
+    await t.test('Impide leer un viaje finalizado de otro conductor', async () => {
+      const context = environment.authenticatedContext('driver-history-intruder');
+
+      await assertFails(getDoc(
+        doc(context.firestore(), 'trips', 'trip-history-completed')
+      ));
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #23
+    // Viajes creados manualmente en Firebase Console sin el campo driverId
+    // deben tratarse como no asignados (compatibilidad con datos existentes).
+    await t.test('Permite aceptar un viaje pendiente sin campo driverId', async () => {
+      await seedDriver(environment, 'driver-legacy-trip');
+
+      await environment.withSecurityRulesDisabled(async (context) => {
+        const { driverId, ...tripWithoutDriver } = validTrip();
+
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-without-driver-field'),
+          tripWithoutDriver
+        );
+      });
+
+      const context = environment.authenticatedContext('driver-legacy-trip');
+      const ref = doc(context.firestore(), 'trips', 'trip-without-driver-field');
+
+      await assertSucceeds(
+        updateDoc(ref, {
+          status: 'accepted',
+          driverId: 'driver-legacy-trip',
+        })
+      );
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #23
+    await t.test('Impide aceptar un viaje asignándolo a otro conductor', async () => {
+      await seedDriver(environment, 'driver-impersonator');
+
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-impersonation'),
+          validTrip()
+        );
+      });
+
+      const context = environment.authenticatedContext('driver-impersonator');
+      const ref = doc(context.firestore(), 'trips', 'trip-impersonation');
+
+      await assertFails(
+        updateDoc(ref, {
+          status: 'accepted',
+          driverId: 'driver-approved',
+        })
+      );
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #23
+    for (const scenario of [
+      { name: 'tarifa como texto', overrides: { estimatedFare: '15000' } },
+      {
+        name: 'coordenadas como texto',
+        overrides: {
+          pickup: {
+            address: 'Parque de Berrío, Medellín',
+            latitude: '6.2518',
+            longitude: '-75.5636',
+          },
+        },
+      },
+      { name: 'sin destino', overrides: { destination: null } },
+    ]) {
+      await t.test(`Impide aceptar un viaje con ${scenario.name}`, async () => {
+        const id = `trip-malformed-${scenario.name.replaceAll(' ', '-')}`;
+
+        await seedDriver(environment, 'driver-malformed');
+
+        await environment.withSecurityRulesDisabled(async (context) => {
+          await setDoc(
+            doc(context.firestore(), 'trips', id),
+            validTrip(scenario.overrides)
+          );
+        });
+
+        const context = environment.authenticatedContext('driver-malformed');
+
+        await assertFails(
+          updateDoc(doc(context.firestore(), 'trips', id), {
+            status: 'accepted',
+            driverId: 'driver-malformed',
+          })
+        );
+      });
+    }
 
     await t.test('Solo un conductor puede aceptar el mismo viaje', async () => {
       await seedDriver(environment, 'driver-race-a');
