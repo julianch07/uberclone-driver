@@ -10,7 +10,8 @@ import {
 import { getDriverTripHistory } from '../../services/tripService';
 // AI-assisted: see docs/AI_LOG.md #27
 import { formatCurrency, getTripEarnings } from '../../utils/fareLogic';
-import { TRIP_STATUS } from '../../utils/tripLogic';
+// AI-assisted: see docs/AI_LOG.md #29
+import { getTripPaymentLabel, isFinishedTrip } from '../../utils/cashPaymentLogic';
 
 export default function EarningsScreen({ uid }) {
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,9 @@ export default function EarningsScreen({ uid }) {
       try {
         setLoading(true);
         const history = await getDriverTripHistory(uid);
-        const completedTrips = history.filter(t => t.status === TRIP_STATUS.COMPLETED);
+        // AI-assisted: see docs/AI_LOG.md #29
+        // Finalizados: completed y paid (con el cobro registrado).
+        const completedTrips = history.filter(isFinishedTrip);
         
         let totalFare = 0;
         let driverEarnings = 0;
@@ -111,6 +114,8 @@ export default function EarningsScreen({ uid }) {
                 <Text style={styles.tripAddress} numberOfLines={1}>
                   {item.destination?.address || 'Destino desconocido'}
                 </Text>
+                {/* AI-assisted: see docs/AI_LOG.md #29 */}
+                <Text style={styles.paymentLabel}>{getTripPaymentLabel(item)}</Text>
               </View>
               <View style={styles.tripEarnings}>
                 <Text style={styles.earningsText}>
@@ -216,6 +221,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#697386',
     fontWeight: '600',
+  },
+  // AI-assisted: see docs/AI_LOG.md #29
+  paymentLabel: {
+    fontSize: 12,
+    color: '#697386',
+    marginTop: 2,
   },
   tripAddress: {
     fontSize: 14,

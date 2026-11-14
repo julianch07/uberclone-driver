@@ -591,7 +591,6 @@ Quiero un módulo completo, coherente, probado e integrado con el proyecto exist
 # UberClone Driver — Módulo 2: Solicitudes y ciclo completo del viaje
 
 Actúa como desarrollador senior especializado en React Native, Expo SDK 58, JavaScript, Firebase Authentication, Cloud Firestore, geolocalización, estados transaccionales y pruebas automatizadas.
-- **Commit:** `b7cfcba` (`feat: implementar solicitudes y ciclo completo de viajes`).
 
 ## 1. Contexto del proyecto
 
@@ -936,7 +935,7 @@ El objetivo es entregar un módulo de solicitudes y ciclo de viaje realmente fun
   - No se instalaron dependencias.
 - **Archivos creados:** `src/hooks/useTripRequests.js`, `src/services/tripOfferService.js`, `src/services/tripRequestFeed.js`, `src/utils/tripRequestLogic.js`, `scripts/dev/simulateTripRequests.cjs`, `scripts/dev/tripRequestTemplate.json` y `tests/tripRequests.test.cjs`.
 - **Archivos modificados:** `src/components/trips/TripRequests.js`, `src/services/tripService.js`, `src/services/tripAcceptance.js`, `src/services/tripLifecycle.js`, `src/utils/tripLogic.js`, `src/utils/tripRequestTimer.js`, `src/utils/activeTripLogic.js`, `src/utils/tripMapLogic.js`, `firestore.rules`, `firestore.indexes.json`, `tests/trips.rules.test.cjs`, `tests/tripAcceptance.test.cjs`, `tests/tripCycle.integration.test.cjs`, `tests/tripRequestTimer.test.cjs`, `tests/tripLogic.test.cjs`, `tests/activeTripService.test.cjs`, `package.json` (script `test:unit`), `README.md` y `docs/AI_LOG.md`.
-- **Commit:** Pendiente (lo registra el integrante).
+- **Commit:** `b7cfcba` (`feat: implementar solicitudes y ciclo completo de viajes`), rama `feat/solicitudes-ciclo-viaje`. Integrado en `main` mediante el Pull Request #26, merge `e33a87f`. *Corrección (entrada #29):* el commit `4637669` había insertado esta línea dentro del texto literal del prompt; se trasladó a este campo sin otros cambios.
 - **Verificación:**
   - `npm run test:unit`: 122/122. `npm run test:integration`: 24/24. `npm run test:rules` con el emulador: 121/121. `npm run test:all`: **267 aprobadas y 0 fallidas**.
   - 0 avisos del límite de 1000 expresiones en todas las salidas.
@@ -952,12 +951,453 @@ El objetivo es entregar un módulo de solicitudes y ciclo de viaje realmente fun
   - Al publicar, una versión anterior de la app no podrá aceptar viajes ni iniciar un viaje desde `accepted`.
 - **Aprendizaje:** En las reglas de Firestore, `&&` y `||` no evitan evaluar el resto de la expresión, así que las reglas extensas deben despacharse con `?:` para no superar el límite de expresiones. Al verificar la ausencia de un aviso conviene buscar el texto exacto que produce la herramienta. Separar la lógica de suscripciones y temporizadores de React permite probar su limpieza sin un entorno de interfaz.
 
+### Entrada #29
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5. La revisión de los servicios financieros y las reglas, que originó los ajustes de completitud, la realizó el integrante con ChatGPT (OpenAI).
+- **Objetivo:** Implementar el módulo 3: registro de pagos en efectivo, comisión del 20 % adeudada a la plataforma y saldo del conductor, con reglas de Firestore, pruebas y compatibilidad con el futuro módulo de Mercado Pago.
+- **Prompt (texto literal):**
+
+````text
+# PROMPT MAESTRO — MÓDULO 3: PAGOS EN EFECTIVO, COMISIONES Y SALDO DEL CONDUCTOR
+
+## 1. ROL Y OBJETIVO
+
+Actúa como un ingeniero de software senior especializado en React Native, Expo, JavaScript, Firebase Authentication, Cloud Firestore, arquitectura de aplicaciones móviles y pruebas automatizadas.
+
+Estás trabajando en **UberClone Driver**, una aplicación universitaria para conductores de una plataforma de transporte.
+
+Tu objetivo es **implementar de manera integral el módulo 3: pagos en efectivo, comisión de la plataforma y saldo pendiente del conductor**, reutilizando la arquitectura existente y manteniendo compatibilidad con todas las funcionalidades ya desarrolladas.
+
+No debes comenzar el proyecto desde cero ni reemplazar componentes funcionales innecesariamente.
+
+## 2. CONTEXTO ACTUAL DEL PROYECTO
+
+**Repositorio:** [https://github.com/julianch07/uberclone-driver](https://github.com/julianch07/uberclone-driver)
+
+**Rama actual:** `feat/pagos-efectivo-saldo-conductor`
+
+**Último PR fusionado:** #26 — Solicitudes y ciclo completo de viajes.
+
+**Tecnologías:**
+
+- React Native con Expo SDK 58.
+- JavaScript, sin TypeScript.
+- Firebase Authentication.
+- Cloud Firestore.
+- Cloudinary para fotografías.
+- Arquitectura basada en componentes, hooks, servicios y utilidades.
+
+**Funcionalidades existentes:**
+
+- Registro de conductores en tres secciones.
+- Persistencia de información en Firestore.
+- Estado de aprobación del conductor.
+- Navegación principal.
+- Disponibilidad y ubicación.
+- Solicitudes de viajes.
+- Aceptación y rechazo de solicitudes.
+- Ciclo de viaje hasta su finalización.
+- Cálculo de tarifas y comisión de plataforma del 20%.
+- Pantallas de ganancias, historial y perfil.
+
+El módulo 2 incorporó ofertas individuales de viajes, vencimiento de 15 segundos, aceptación mediante transacciones, recuperación de viajes activos y pruebas automatizadas.
+
+**Importante:** inspecciona el código actual y verifica qué funcionalidades están realmente implementadas antes de asumir su comportamiento.
+
+## 3. REGLAS OBLIGATORIAS
+
+1. Lee `AGENTS.md`, `README.md`, `package.json`, `docs/AI_LOG.md` y todos los archivos relevantes antes de modificar código.
+2. Trabaja exclusivamente sobre la rama `feat/pagos-efectivo-saldo-conductor`.
+3. No ejecutes `git add`, `git commit`, `git push`, `git merge` ni crees Pull Requests.
+4. No modifiques `.env` ni expongas credenciales.
+5. No despliegues reglas, índices ni servicios de Firebase.
+6. No modifiques configuraciones de producción sin autorización.
+7. No reescribas funcionalidades existentes innecesariamente.
+8. No instales dependencias nuevas salvo necesidad técnica justificada.
+9. Conserva compatibilidad con JavaScript, Expo 58 y las dependencias actuales.
+10. Respeta los modelos y estados de viaje ya implementados.
+11. No elimines pruebas existentes ni reduzcas sus verificaciones.
+12. Documenta la asistencia de IA siguiendo `docs/AI_LOG.md`.
+13. Añade comentarios `// AI-assisted: see docs/AI_LOG.md #N` en los archivos correspondientes, usando la siguiente entrada disponible.
+14. No añadas atribuciones de Claude como coautor de commits.
+15. No simules operaciones financieras reales que no tengan un respaldo técnico verificable.
+
+## 4. FUNCIONALIDAD A — PAGOS EN EFECTIVO
+
+Implementa el manejo de viajes completados cuyo método de pago sea efectivo.
+
+**Requisitos:**
+
+- Identificar correctamente el método de pago registrado en el viaje.
+- Registrar que el conductor recibió el efectivo directamente del pasajero.
+- Asociar el cobro con el viaje y el conductor correspondiente.
+- Impedir cobros duplicados.
+- Manejar reintentos y doble pulsación.
+- Mostrar un resumen del importe recibido.
+- Conservar trazabilidad del registro.
+
+Diferencia claramente entre:
+
+- Dinero recibido directamente por el conductor.
+- Comisión que corresponde a la plataforma.
+- Saldo pendiente del conductor con la plataforma.
+
+El registro de recepción de efectivo no debe presentarse como una verificación bancaria independiente.
+
+## 5. FUNCIONALIDAD B — COMISIÓN DEL 20%
+
+La plataforma UberClone cobra una comisión del **20% sobre el importe correspondiente del viaje**, según el modelo de tarifas existente.
+
+Debes:
+
+1. Inspeccionar el cálculo actual de tarifas y comisiones.
+2. Reutilizarlo como fuente de verdad.
+3. Evitar cálculos contradictorios entre pantallas y servicios.
+4. Registrar la comisión correspondiente a cada viaje en efectivo.
+5. Garantizar importes consistentes en pesos colombianos.
+6. Definir una política explícita de redondeo.
+7. Evitar registros duplicados de comisiones.
+8. Mantener los importes históricos estables después de finalizar el viaje.
+
+Ejemplo ilustrativo, sujeto al modelo de tarifas existente:
+
+| Concepto                           |       Valor |
+| ---------------------------------- | ----------: |
+| Tarifa del viaje                   | $20.000 COP |
+| Comisión de plataforma (20%)       |  $4.000 COP |
+| Efectivo recibido por el conductor | $20.000 COP |
+| Comisión adeudada a la plataforma  |  $4.000 COP |
+| Ganancia neta del conductor        | $16.000 COP |
+
+No confundas la ganancia neta con el efectivo físicamente recibido.
+
+## 6. FUNCIONALIDAD C — SALDO DEL CONDUCTOR
+
+Implementa la consulta del saldo relacionado con los viajes cobrados en efectivo.
+
+La interfaz debe permitir visualizar, cuando los datos existentes lo soporten:
+
+- Total cobrado en efectivo.
+- Total de comisiones generadas.
+- Comisión pendiente de pago a la plataforma.
+- Ganancia neta acumulada.
+- Historial de comisiones por viaje.
+- Estados de carga, error y ausencia de registros.
+
+Diseña un modelo de datos que permita incorporar posteriormente pagos o conciliaciones de comisiones.
+
+**Restricción importante:** no implementes un botón que permita al conductor marcar unilateralmente su deuda como pagada.
+
+Si no existe un backend administrativo seguro, conserva las comisiones como pendientes y documenta cómo podrían conciliarse posteriormente.
+
+## 7. FUNCIONALIDAD D — SEGURIDAD E INTEGRIDAD DE FIRESTORE
+
+La integridad de los registros financieros es prioritaria.
+
+Implementa o adapta los mecanismos necesarios para:
+
+- Garantizar que un mismo viaje no genere múltiples comisiones.
+- Evitar duplicaciones por reintentos.
+- Validar la identidad del conductor.
+- Respetar las reglas de acceso a Firestore.
+- Impedir modificaciones indebidas de registros históricos.
+- Impedir que un conductor modifique arbitrariamente importes o estados financieros.
+- Conservar consistencia entre viajes completados y registros de cobro.
+- Utilizar transacciones o escrituras atómicas cuando corresponda.
+
+**Advertencia de arquitectura:** las transacciones de Firestore ejecutadas desde el cliente no constituyen por sí solas una garantía contra clientes maliciosos.
+
+Evalúa si las reglas de seguridad pueden validar las operaciones necesarias. Si alguna funcionalidad requiere lógica privilegiada de servidor, documenta esa limitación y plantea una solución segura.
+
+No introduzcas una falsa sensación de seguridad.
+
+## 8. FUNCIONALIDAD E — INTERFAZ DE USUARIO
+
+Integra las funcionalidades dentro de las pantallas y componentes existentes.
+
+Prioriza reutilizar:
+
+- Pantalla de viaje activo o finalizado.
+- Resumen de viaje.
+- Pantalla de ganancias.
+- Historial de viajes.
+- Componentes visuales ya disponibles.
+
+La interfaz debe:
+
+- Mostrar valores monetarios en COP.
+- Diferenciar claramente cobro bruto, comisión y ganancia neta.
+- Evitar acciones duplicadas.
+- Mostrar estados de procesamiento.
+- Informar errores de forma comprensible.
+- Mantener coherencia visual con UberClone Driver.
+- Funcionar correctamente en Expo Go.
+
+No construyas pantallas nuevas si la funcionalidad puede integrarse adecuadamente en las existentes.
+
+## 9. FUNCIONALIDAD F — COMPATIBILIDAD CON MERCADO PAGO
+
+El próximo módulo integrará Mercado Pago mediante un flujo de pago digital.
+
+Por eso:
+
+- Mantén separados los flujos de efectivo y pago digital.
+- No registres pagos digitales como efectivo.
+- No generes automáticamente una deuda por comisión de efectivo para un viaje pagado digitalmente.
+- Conserva un modelo de datos extensible.
+- No implementes todavía Checkout Pro ni credenciales de Mercado Pago.
+- No simules confirmaciones de pago digital.
+
+El módulo 3 debe quedar preparado para coexistir con el módulo 4.
+
+## 10. PRUEBAS OBLIGATORIAS
+
+Agrega pruebas automatizadas para los casos que correspondan:
+
+**Pruebas unitarias:**
+
+- Cálculo y redondeo de comisiones.
+- Importes en COP.
+- Separación de valores brutos y netos.
+- Cálculo de saldo pendiente.
+
+**Pruebas de integración:**
+
+- Registro único de un cobro.
+- Reintentos.
+- Doble pulsación.
+- Operaciones concurrentes.
+- Persistencia y recuperación.
+- Viajes completados y no completados.
+- Separación entre efectivo y pago digital.
+
+**Pruebas de seguridad:**
+
+- Acceso exclusivo del conductor autorizado.
+- Protección de importes.
+- Prevención de cambios indebidos.
+- Restricciones sobre estados financieros.
+
+Al finalizar, ejecuta:
+
+```bash
+npm run test:all
+npx expo-doctor
+npx expo export --platform ios
+```
+
+Si alguna verificación falla, investiga y corrige el problema cuando pertenezca al alcance del módulo.
+
+No afirmes que una prueba fue aprobada si no se ejecutó realmente.
+
+## 11. DOCUMENTACIÓN
+
+Actualiza:
+
+- `README.md`, con las funcionalidades nuevas y sus limitaciones.
+- `docs/AI_LOG.md`, con una nueva entrada siguiendo exactamente la estructura existente.
+
+La entrada debe incluir la herramienta utilizada, objetivo, prompt o resumen fiel, decisiones, archivos modificados, verificaciones y resultados.
+
+Deja el hash del commit pendiente: lo añadiremos posteriormente cuando creemos el commit con Git.
+
+No modifiques entradas históricas sin necesidad.
+
+## 12. METODOLOGÍA DE IMPLEMENTACIÓN
+
+Trabaja en las siguientes fases:
+
+**Fase 1 — Auditoría técnica**
+
+Inspecciona el repositorio, los servicios, las pantallas, las reglas de Firestore y los modelos de viaje.
+
+Presenta brevemente:
+
+- Qué funcionalidades pueden reutilizarse.
+- Qué archivos necesitan cambios.
+- Qué archivos nuevos serían necesarios.
+- Cómo almacenarás los cobros y las comisiones.
+- Qué riesgos de seguridad identificaste.
+
+**Fase 2 — Implementación**
+
+Desarrolla los servicios, validaciones, reglas, componentes y hooks necesarios.
+
+Integra las funcionalidades en la aplicación.
+
+**Fase 3 — Pruebas**
+
+Ejecuta las verificaciones y corrige los fallos relacionados con el módulo.
+
+**Fase 4 — Documentación**
+
+Actualiza README y bitácora de IA.
+
+**Fase 5 — Informe final**
+
+Entrega un resumen que incluya:
+
+1. Funcionalidades implementadas.
+2. Archivos creados.
+3. Archivos modificados.
+4. Modelo de datos utilizado.
+5. Medidas de seguridad implementadas.
+6. Pruebas ejecutadas y resultados.
+7. Limitaciones y riesgos pendientes.
+8. Recomendaciones para el módulo 4.
+
+## 13. CRITERIO FINAL DE ACEPTACIÓN
+
+El módulo estará listo para revisión cuando:
+
+- Un viaje completado en efectivo pueda registrar su cobro.
+- El registro sea idempotente y no genere duplicados.
+- Se calcule y conserve la comisión del 20%.
+- Se pueda consultar el saldo pendiente del conductor.
+- Los importes sean consistentes entre viajes, ganancias e historial.
+- Las reglas de Firestore protejan las operaciones dentro de las garantías que realmente puedan ofrecer.
+- Las pruebas correspondientes se ejecuten satisfactoriamente.
+- La documentación esté actualizada.
+- No se hayan creado commits ni realizado despliegues.
+
+**Prioridad máxima:** calidad, compatibilidad con el proyecto existente, integridad financiera y seguridad.
+
+No sacrifiques estas condiciones por implementar más funcionalidades.
+
+Comienza inspeccionando el repositorio y presenta el diagnóstico técnico antes de realizar cambios importantes. Claude,  tu realizarás la implementación local. Cuando termine, me pasas su informe y los resultados de las pruebas. Yo revisaré la coherencia con el proyecto, los posibles riesgos de Firestore y el cumplimiento de lo solicitado antes de hacer los commits.
+````
+
+- **Revisión con ChatGPT (resumen; el mensaje la incluía antes del prompt de ajustes):** auditoría favorable de la seguridad de los pagos en efectivo, con dos ajustes recomendados: el saldo se calculaba con un máximo de 100 asientos y los cobros pendientes con un máximo de 20 viajes completados filtrados en el cliente.
+- **Prompt de ajustes (texto literal):**
+
+```text
+# AJUSTES FINALES — MÓDULO 3 UBERCLONE DRIVER
+
+He revisado junto con ChatGPT los servicios financieros y las reglas de Firestore del módulo 3.
+
+La auditoría es favorable. No debes reescribir el módulo ni modificar funcionalidades que ya funcionan.
+
+Antes de crear los commits necesitamos resolver dos problemas de completitud de datos.
+
+## 1. Saldo limitado a 100 movimientos
+
+Actualmente `cashPaymentService.js` consulta los últimos 100 asientos contables y `summarizeDriverBalance()` calcula el saldo a partir de ellos.
+
+Esto puede presentar una deuda incorrecta cuando existan más de 100 movimientos.
+
+**Objetivo:** garantizar que el saldo presentado como total sea completo y correcto.
+
+Evalúa la solución más adecuada para el proyecto:
+
+- Paginación completa de asientos para el cálculo del saldo.
+- Agregados financieros mantenidos de forma segura.
+- Otra alternativa que conserve integridad y compatibilidad con Firestore.
+
+No utilices agregados actualizables libremente por el conductor.
+
+Si implementas paginación, diferencia entre la consulta limitada para mostrar el historial y la consulta completa necesaria para calcular el saldo.
+
+No presentes datos parciales como si fueran totales.
+
+## 2. Cobros pendientes limitados a 20 viajes
+
+Actualmente se consultan hasta 20 viajes completados y después se filtran los pagos en efectivo.
+
+Esto puede ocultar viajes pendientes de cobro.
+
+**Objetivo:** permitir recuperar todos los viajes en efectivo pendientes, sin introducir consultas incompatibles con las reglas de Firestore.
+
+Evalúa una consulta específica por método de pago y estado, junto con paginación cuando sea necesaria.
+
+Comprueba si hacen falta índices compuestos y actualiza `firestore.indexes.json` únicamente cuando corresponda.
+
+No despliegues reglas ni índices.
+
+## 3. Pruebas obligatorias
+
+Añade pruebas para:
+
+- Más de 100 asientos contables.
+- Más de 20 viajes pendientes.
+- Mezcla de viajes digitales y en efectivo.
+- Cálculo correcto de la deuda histórica.
+- Errores de paginación o lecturas incompletas.
+- Compatibilidad con las reglas existentes.
+
+Ejecuta nuevamente:
+
+- `npm run test:all`
+- `npx expo-doctor`
+- `npx expo export --platform ios`
+- `git diff --check`
+
+## 4. Restricciones
+
+- Mantén la rama `feat/pagos-efectivo-saldo-conductor`.
+- No ejecutes `git add`, `git commit`, `git push` ni crees PR.
+- No modifiques `.env`.
+- No despliegues Firebase.
+- No instales dependencias innecesarias.
+- No alteres el flujo de Mercado Pago.
+- Conserva el formato de `docs/AI_LOG.md` y actualiza la entrada #29.
+- Mantén los comentarios de asistencia de IA.
+
+## 5. Entrega
+
+Implementa las correcciones y entrégame un informe con los archivos modificados, la solución escogida, los resultados reales de las pruebas y los riesgos pendientes.
+
+No hagas commits. ChatGPT y yo realizaremos la revisión final y el control de versiones.
+```
+
+- **Resumen de la respuesta:** Tras una auditoría, se implementó el cobro en efectivo como una transacción que pasa el viaje de `completed` a `paid` (`paymentStatus: "cash"`) y crea el asiento `drivers/{uid}/ledgerEntries/cash_{tripId}`, con los importes copiados del desglose del módulo de tarifas. Las reglas exigen ambas escrituras juntas y con los mismos importes, e impiden duplicarlas, modificarlas o liquidarlas. Se añadieron una tarjeta de cobro en la pestaña Viajes y el saldo real en la pantalla Pagos. En los ajustes, el saldo pasó a calcularse con agregaciones de Firestore sobre todos los asientos y los cobros pendientes con una consulta filtrada en el servidor y paginada.
+- **Qué se usó / modificó / descartó:**
+  - **Fuente de verdad:** se reutilizó el desglose guardado al finalizar (#27): `fare`, `commission` con redondeo a la mitad hacia arriba en pesos enteros, `commissionRate`, `driverEarnings` y `tip`. El cobro no recalcula importes, por lo que el historial permanece estable.
+  - **Modelo:** el asiento distingue `cashAmount` (efectivo recibido: tarifa + propina), `commission`/`amount` (deuda con la plataforma) y `driverEarnings` (ganancia neta). El ID determinista `cash_{tripId}` garantiza una sola comisión por viaje. El tipo `cash_commission` y el estado `pending`/`settled` dejan el modelo abierto a liquidaciones y pagos digitales.
+  - **Seguridad:** las reglas validan identidad, método `cash`, estado `completed`, ausencia de pago previo, importes idénticos al viaje y la atomicidad con `existsAfter`/`getAfter`. Se documentó que el registro es una declaración del conductor y que la liquidación de comisiones requiere un backend con credenciales de servidor. No se implementó ningún botón para marcar la deuda como pagada.
+  - **Separación digital/efectivo:** los viajes `mercadopago`/`stripe` no pueden registrarse como efectivo ni pasar a `paid` desde la app; se muestran como "Pago digital pendiente". Los estados `approved`, `pending` y `rejected` quedan reservados para la pasarela.
+  - **Estado `paid`:** se añadió a `TRIP_STATUS` y se incluyó en la consulta y la regla del historial y en los filtros de Ganancias y Pagos, para que los viajes cobrados no desaparezcan.
+  - **Interfaz:**
+    - En `PaymentSummaryScreen` se reemplazaron los textos fijos sin implementación ("Próximo pago estimado", "Fecha: Lunes próximo", "Los pagos se procesan semanalmente…") por el saldo real y la lista de comisiones por viaje.
+    - Los cobros por confirmar se muestran en la pestaña Viajes, porque `DriverContext` deja de mostrar el viaje al finalizarlo.
+  - **Hallazgos de las pruebas:**
+    - Con el saldo vacío el resultado era `-0`; se corrigió en el código.
+    - La primera instantánea de `onSnapshot` puede venir de la caché local; la prueba espera a la condición.
+    - Leer un viaje inexistente o ajeno ya es rechazado por las reglas (`permission-denied`), por lo que el cobro tiene su propio mensaje de error.
+  - **Ajustes de completitud (tras la revisión con ChatGPT):**
+    - **Saldo:** los totales los calcula Firestore en el servidor sobre todos los asientos (`getAggregateFromServer` con `count` y `sum`), sujeto a las reglas de lectura del propietario. Se descartaron los agregados escritos por el cliente, que serían manipulables, y la paginación completa en el cliente, que es más costosa e igual de exacta. La lista visible sigue limitada a los 100 asientos más recientes e indica cuando hay más. Los totales se recalculan con cada cambio y, si el cálculo falla, la pantalla muestra un error y ningún saldo.
+    - **Cobros pendientes:** se filtran en el servidor por conductor, `completed` y `cash`, y se leen todas las páginas de 50 (el límite de la regla) con `startAfter`. La primera página se escucha en tiempo real y cada cambio relee la lista completa. Si falla una página, no se entrega una lista parcial.
+    - **Índices:** las consultas nuevas solo usan filtros de igualdad, que Firestore resuelve combinando índices de un solo campo; no se modificó `firestore.indexes.json`.
+  - **Simulador:** el comando `demo` registra también el cobro en efectivo.
+  - **Corrección documental:** el commit `4637669` había insertado el hash de la entrada #28 dentro del texto literal de su prompt; se trasladó a su campo "Commit".
+  - No se instalaron dependencias ni se desplegó nada.
+- **Archivos creados:** `src/utils/cashPaymentLogic.js`, `src/services/cashPaymentService.js`, `src/services/firestorePagination.js`, `tests/pagination.test.cjs`, `src/hooks/useDriverPayments.js`, `src/components/payments/PendingCashPayments.js`, `tests/cashPayment.test.cjs`, `tests/cashPayment.integration.test.cjs` y `tests/payments.rules.test.cjs`.
+- **Archivos modificados:** `src/utils/tripLogic.js`, `src/services/tripService.js`, `src/components/trips/TripRequests.js`, `src/screens/home/PaymentSummaryScreen.js`, `src/screens/home/EarningsScreen.js`, `src/screens/home/TripHistoryScreen.js`, `firestore.rules`, `scripts/dev/simulateTripRequests.cjs`, `tests/activeTripService.test.cjs`, `package.json` (scripts de pruebas), `README.md` y `docs/AI_LOG.md`.
+- **Commit:** Pendiente (lo registra el integrante).
+- **Verificación:**
+  - `npm run test:all` con el emulador local: 139 unitarias, 37 de integración y 150 de reglas, **326 aprobadas y 0 fallidas**.
+  - Pruebas nuevas del módulo: 17 unitarias, 13 de integración y 29 de reglas. Los ajustes añadieron 130 asientos (con liquidados mezclados), 65 cobros pendientes, 30 viajes digitales, 10 pagados y 3 antiguos; se comprobó que los totales del servidor coinciden con la suma de todos los asientos y difieren de la suma de los 100 más recientes. También se probaron las lecturas sin permiso, sin datos parciales.
+  - Las pruebas de integración se ejecutaron varias veces seguidas sin fallos.
+  - Ningún aviso "maximum of 1000 expressions" en las salidas (búsqueda del texto exacto del emulador).
+  - Una prueba existente se actualizó por cambio de requisito: la consulta del historial incluye `paid`.
+  - `npx expo-doctor`: 20/20. `npx expo export --platform ios`: bundle generado (996 módulos). `git diff --check` sin observaciones.
+  - No se probó en Expo Go ni contra Firebase de producción: las reglas nuevas no se han publicado.
+- **Limitaciones:**
+  - La confirmación del efectivo depende de la declaración del conductor.
+  - Las comisiones permanecen `pending` hasta que exista un backend administrativo.
+  - Los viajes finalizados antes del módulo de tarifas, o sin `paymentMethod`, no pueden registrar cobro.
+  - Al publicar las reglas, la app y las reglas deben actualizarse juntas.
+  - Las agregaciones no son en tiempo real: se recalculan cada vez que cambia la lista de asientos recientes.
+  - El emulador no verifica índices. Si en producción Firestore pidiera un índice compuesto para las consultas de igualdad, el error incluye el enlace para crearlo.
+- **Aprendizaje:** Las reglas de Firestore pueden garantizar la coherencia entre dos documentos escritos en la misma operación (`existsAfter`/`getAfter`) y la inmutabilidad de un registro, pero no la veracidad de un hecho del mundo real como la entrega del efectivo. Copiar los importes ya validados, en lugar de recalcularlos, mantiene los registros financieros consistentes entre pantallas y en el tiempo.
+
 ---
 
 ## Consideraciones generales
 
 - Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
-- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26, #27 y #28 se realizaron con Claude Code en el repositorio local.
+- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26, #27, #28 y #29 se realizaron con Claude Code en el repositorio local.
 - Cuando un prompt no se conserva literalmente, el campo se identifica como resumen.
 - Los archivos generados por la plantilla de Expo (entrada #1) y por npm (`package-lock.json`) no constituyen código generado por IA.
 - Los commits de documentación `e7f8588`, `8748a20`, `f5ef7a9`, `04788d3`, `74b621a`, `3669693`, `8e6ef79`, `eff416b` y `8cf42fd` solo actualizan esta bitácora o el README; no consta el uso de IA en ellos.

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // AI-assisted: see docs/AI_LOG.md #28
+// AI-assisted: see docs/AI_LOG.md #29
 //
 // Simulador de solicitudes de viaje para desarrollo. NO es parte de la
 // aplicación: está fuera de src/ y la app nunca lo importa.
@@ -288,6 +289,9 @@ async function runDemo(environment) {
   step('Pasajero a bordo: viaje en curso');
   await services.completeTrip(ids.complete, driverId, db);
   step('Viaje finalizado con desglose de tarifa');
+  // AI-assisted: see docs/AI_LOG.md #29
+  await services.registerCashPayment(ids.complete, driverId, db);
+  step('Cobro en efectivo registrado; comisión pendiente en el saldo');
 
   await services.createTripOffer(driverId, ids.reject, db);
   await services.rejectTripOffer(driverId, ids.reject, 'manual', db);
@@ -318,6 +322,16 @@ async function runDemo(environment) {
     console.log(
       `Desglose guardado: tarifa ${trip.fare}, comisión ${trip.commission}, ` +
         `ganancia ${trip.driverEarnings} (${trip.fareSource})`
+    );
+
+    const entry = (
+      await firestore.getDoc(
+        firestore.doc(context.firestore(), 'drivers', driverId, 'ledgerEntries', `cash_${ids.complete}`)
+      )
+    ).data();
+    console.log(
+      `Viaje ${trip.status} (${trip.paymentStatus}). Asiento: efectivo ${entry.cashAmount}, ` +
+        `comisión adeudada ${entry.amount}, estado ${entry.status}`
     );
   });
 }

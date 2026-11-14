@@ -9,6 +9,15 @@ import {
 } from 'react-native';
 import { getDriverTripHistory } from '../../services/tripService';
 import { formatCurrency } from '../../utils/fareLogic';
+// AI-assisted: see docs/AI_LOG.md #29
+import { getTripPaymentLabel } from '../../utils/cashPaymentLogic';
+
+// AI-assisted: see docs/AI_LOG.md #29
+const STATUS_BADGES = {
+  completed: { label: 'Completado', style: 'successBadge' },
+  paid: { label: 'Pagado', style: 'successBadge' },
+  cancelled: { label: 'Cancelado', style: 'errorBadge' },
+};
 
 export default function TripHistoryScreen({ uid }) {
   const [loading, setLoading] = useState(true);
@@ -55,12 +64,14 @@ export default function TripHistoryScreen({ uid }) {
                   ? new Date((item.completedAt || item.cancelledAt || item.createdAt).seconds * 1000).toLocaleString() 
                   : 'Fecha desconocida'}
               </Text>
-              <View style={[styles.badge, item.status === 'completed' ? styles.successBadge : styles.errorBadge]}>
+              {/* AI-assisted: see docs/AI_LOG.md #29 */}
+              <View style={[styles.badge, styles[(STATUS_BADGES[item.status] || STATUS_BADGES.cancelled).style]]}>
                 <Text style={styles.badgeText}>
-                  {item.status === 'completed' ? 'Completado' : 'Cancelado'}
+                  {(STATUS_BADGES[item.status] || { label: item.status }).label}
                 </Text>
               </View>
             </View>
+            <Text style={styles.paymentLabel}>{getTripPaymentLabel(item)}</Text>
             
             <View style={styles.body}>
               <View style={styles.location}>
@@ -134,6 +145,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
+  },
+  // AI-assisted: see docs/AI_LOG.md #29
+  paymentLabel: {
+    fontSize: 12,
+    color: '#697386',
+    marginTop: -8,
+    marginBottom: 12,
   },
   successBadge: {
     backgroundColor: '#D1FAE5',
