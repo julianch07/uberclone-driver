@@ -94,8 +94,8 @@ Después del registro, la aplicación incluye:
 - **Aprobación del conductor:** todo registro queda `pending` y solo puede pasar a `approved` desde Firebase Console.
 - **Disponibilidad:** el conductor aprobado y con documentos vigentes puede conectarse y desconectarse.
 - **Ubicación GPS y mapa:** seguimiento en primer plano y publicación de la ubicación mientras el conductor está conectado.
-- **Solicitudes de viaje:** lista en tiempo real de viajes pendientes, con un plazo de 20 segundos para aceptarlos.
-- **Ciclo del viaje:** aceptar, iniciar, finalizar y cancelar viajes mediante transacciones de Firestore, con recuperación del viaje activo al reiniciar la aplicación.
+- **Solicitudes de viaje:** lista en tiempo real con origen, destino, distancia, duración, categoría, método de pago, tarifa, comisión y ganancia neta estimadas; 15 segundos para aceptar o rechazar, con rechazo automático al vencer.
+- **Ciclo del viaje:** aceptar → "Voy en camino" → "Llegué al origen" → "Pasajero a bordo" → finalizar, o cancelar antes de recoger al pasajero, mediante transacciones de Firestore y con recuperación del viaje activo al reiniciar la aplicación.
 - **Ruta del viaje:** recorrido hasta el punto de recogida o el destino, calculado con el servicio público OSRM.
 - **Ganancias, pagos e historial:** resumen con comisión del 20 % para la plataforma y 80 % para el conductor, e historial de viajes completados y cancelados.
 - **Perfil:** datos del conductor, del vehículo y acceso a la edición del registro.
@@ -104,7 +104,7 @@ Las reglas de `firestore.rules` restringen cada operación al conductor propieta
 
 Limitaciones conocidas:
 
-- El plazo de 20 segundos se controla en el dispositivo; las solicitudes vencidas siguen pendientes en Firestore.
+- El plazo de 15 segundos cuenta desde que cada conductor recibe la solicitud. Una solicitud que nadie acepta sigue en `pending` en Firestore: marcarla como vencida o rechazada para todos requiere un backend.
 - El historial consulta un máximo de 50 viajes finalizados.
 - La distancia y la duración de cada viaje deben venir en el documento de la solicitud (`distanceKm`, `durationMin`); la consulta a Google Distance Matrix al crear la solicitud no está integrada.
 - El servicio público de OSRM es adecuado para pruebas, pero no garantiza disponibilidad en producción.
@@ -148,8 +148,51 @@ No existe aplicación de pasajero: las solicitudes se crean como documentos en l
 | `durationMin` | number | `22` |
 | `category` | string | `economy`, `xl` o `premium` (también `Económico`, `XL`, `Premium`) |
 | `estimatedFare` | number | Resultado de `calculateFare()` para los valores anteriores, por ejemplo `19200` |
+| `paymentMethod` | string | `cash`, `mercadopago` o `stripe` |
 | `tip` | number (entero, opcional) | `0` |
-| `createdAt` | timestamp | Fecha de creación |
+| `createdAt` | timestamp | Fecha y hora actuales (obligatorio: la lista se ordena por este campo) |
+
+## Solicitudes de viaje
+
+### Modelo
+
+- **Solicitudes compartidas:** cada viaje en `pending` es visible para todos los conductores aprobados y conectados. La primera aceptación válida gana: transacción en la app y reglas de Firestore. `pending` equivale al estado `requested` de la guía.
+- **Oferta por conductor:** al ver una solicitud, la app crea `drivers/{uid}/tripOffers/{tripId}` con `status: "offered"` y `offeredAt` con la hora del servidor. Los 15 segundos se cuentan desde `offeredAt`, así que el contador no se reinicia al volver a renderizar, al pasar a segundo plano ni al reabrir la app.
+- **Rechazo:** el botón Rechazar, o el vencimiento del plazo, cambia la oferta a `status: "rejected"` con `reason: "manual"` o `"expired"`. Solo afecta a ese conductor: la solicitud sigue disponible para los demás.
+- **Reglas:** solo se puede aceptar con una oferta propia, no rechazada y dentro de los 15 s (verificado con `request.time`). No se puede rechazar la oferta de otro conductor ni reiniciar el plazo.
+
+### Estados y transiciones
+
+| Acción del conductor | Estado | Campo que se registra |
+|---|---|---|
+| Aceptar | `pending` → `accepted` | `driverId` |
+| Voy en camino | `accepted` → `driver_arriving` | `arrivingAt` |
+| Llegué al origen | `driver_arriving` (sin cambiar de estado) | `arrivedAt` |
+| Pasajero a bordo | `driver_arriving` → `in_progress` | `startedAt` |
+| Finalizar viaje | `in_progress` → `completed` | `completedAt` y desglose de tarifa |
+| Cancelar (antes de que suba el pasajero) | `accepted` o `driver_arriving` → `cancelled` | `cancelledAt` |
+
+La ruta del mapa va al punto de recogida hasta que el pasajero sube y después al destino. Los estados `paid` (módulo de pagos) y `rejected` global (requiere un backend) no los escribe esta app. Las reglas impiden al conductor modificar la tarifa, la distancia, la duración, la categoría, la propina, el método o el estado de pago, y cualquier cambio después de finalizar.
+
+### Cómo probarlo
+
+**Con el emulador (sin datos reales):**
+
+```bash
+npx firebase-tools emulators:start --only firestore      # en otra terminal
+node scripts/dev/simulateTripRequests.cjs create --category all --payment cash
+node scripts/dev/simulateTripRequests.cjs list
+node scripts/dev/simulateTripRequests.cjs demo            # acepta, rechaza, deja vencer y finaliza
+node scripts/dev/simulateTripRequests.cjs clear
+```
+
+El simulador está en `scripts/dev/`, fuera del código de la app. Solo funciona contra el emulador con proyectos `demo-*` y no usa credenciales.
+
+**En Expo Go (Firebase del proyecto):**
+
+1. Publicar antes las reglas y los índices de este módulo. La lista de solicitudes usa el índice compuesto `trips (status, createdAt desc)`.
+2. Crear en Firebase Console un documento en `trips` siguiendo `scripts/dev/tripRequestTemplate.json`, con `createdAt` como timestamp de la fecha y hora actuales.
+3. Con el conductor aprobado y conectado, abrir la pestaña Viajes: la solicitud aparece con su cuenta regresiva de 15 s.
 
 ## Ubicación GPS y Google Maps
 
@@ -195,6 +238,8 @@ Con el emulador en ejecución, en otra terminal:
 ```bash
 npm run test:all
 ```
+
+Para generar solicitudes de prueba en el emulador, ver la sección [Solicitudes de viaje](#solicitudes-de-viaje).
 
 ## Uso de IA
 

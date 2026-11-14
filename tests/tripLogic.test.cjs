@@ -11,9 +11,13 @@ const modulePath = path.join(
 const {
   isValidTrip,
   canAcceptTrip,
+  canMarkDriverArriving,
+  canMarkArrivedAtPickup,
   canStartTrip,
   canCompleteTrip,
   canCancelTrip,
+  getActiveTripStage,
+  ACTIVE_TRIP_STATUSES,
 } = loadModule(modulePath);
 
 function validTrip(overrides = {}) {
@@ -82,17 +86,91 @@ test('Impide aceptar un viaje previamente asignado', () => {
   assert.equal(canAcceptTrip(trip, 'driver-1', true), false);
 });
 
-test('Permite iniciar un viaje aceptado por su conductor', () => {
+// AI-assisted: see docs/AI_LOG.md #28
+// "Pasajero a bordo" exige haber llegado al origen (driver_arriving + arrivedAt).
+const ARRIVED = { seconds: 1, nanoseconds: 0 };
+
+test('Permite iniciar el viaje cuando el conductor llegó al origen', () => {
+  assert.equal(
+    canStartTrip(
+      validTrip({ status: 'driver_arriving', arrivedAt: ARRIVED, driverId: 'driver-1' }),
+      'driver-1'
+    ),
+    true
+  );
+});
+
+test('Impide iniciar el viaje sin haber llegado al origen', () => {
   assert.equal(
     canStartTrip(validTrip({ status: 'accepted', driverId: 'driver-1' }), 'driver-1'),
-    true
+    false
+  );
+  assert.equal(
+    canStartTrip(validTrip({ status: 'driver_arriving', driverId: 'driver-1' }), 'driver-1'),
+    false
   );
 });
 
 test('Impide iniciar un viaje asignado a otro conductor', () => {
   assert.equal(
-    canStartTrip(validTrip({ status: 'accepted', driverId: 'driver-2' }), 'driver-1'),
+    canStartTrip(
+      validTrip({ status: 'driver_arriving', arrivedAt: ARRIVED, driverId: 'driver-2' }),
+      'driver-1'
+    ),
     false
+  );
+});
+
+test('"Voy en camino" solo desde accepted y por el conductor asignado', () => {
+  assert.equal(
+    canMarkDriverArriving(validTrip({ status: 'accepted', driverId: 'driver-1' }), 'driver-1'),
+    true
+  );
+  assert.equal(
+    canMarkDriverArriving(validTrip({ status: 'driver_arriving', driverId: 'driver-1' }), 'driver-1'),
+    false
+  );
+  assert.equal(
+    canMarkDriverArriving(validTrip({ status: 'accepted', driverId: 'driver-2' }), 'driver-1'),
+    false
+  );
+});
+
+test('"Llegué al origen" se registra una sola vez', () => {
+  assert.equal(
+    canMarkArrivedAtPickup(validTrip({ status: 'driver_arriving', driverId: 'driver-1' }), 'driver-1'),
+    true
+  );
+  assert.equal(
+    canMarkArrivedAtPickup(
+      validTrip({ status: 'driver_arriving', arrivedAt: ARRIVED, driverId: 'driver-1' }),
+      'driver-1'
+    ),
+    false
+  );
+  assert.equal(
+    canMarkArrivedAtPickup(validTrip({ status: 'accepted', driverId: 'driver-1' }), 'driver-1'),
+    false
+  );
+});
+
+test('Etapas del viaje activo', () => {
+  assert.deepEqual([...ACTIVE_TRIP_STATUSES], ['accepted', 'driver_arriving', 'in_progress']);
+  assert.equal(getActiveTripStage(validTrip({ status: 'accepted' })), 'accepted');
+  assert.equal(getActiveTripStage(validTrip({ status: 'driver_arriving' })), 'to_pickup');
+  assert.equal(
+    getActiveTripStage(validTrip({ status: 'driver_arriving', arrivedAt: ARRIVED })),
+    'at_pickup'
+  );
+  assert.equal(getActiveTripStage(validTrip({ status: 'in_progress' })), 'to_destination');
+  assert.equal(getActiveTripStage(validTrip({ status: 'completed' })), null);
+  assert.equal(getActiveTripStage(null), null);
+});
+
+test('Permite cancelar antes de que el pasajero suba', () => {
+  assert.equal(
+    canCancelTrip(validTrip({ status: 'driver_arriving', arrivedAt: ARRIVED, driverId: 'driver-1' }), 'driver-1'),
+    true
   );
 });
 

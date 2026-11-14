@@ -1,16 +1,18 @@
 // AI-assisted: see docs/AI_LOG.md #15
+// AI-assisted: see docs/AI_LOG.md #28
 import {
   collection,
   doc,
   getDocs,
   limit,
   onSnapshot,
+  orderBy,
   query,
   where,
 } from 'firebase/firestore';
 
 import { db } from '../config/firebase';
-import { TRIP_STATUS } from '../utils/tripLogic';
+import { ACTIVE_TRIP_STATUSES, TRIP_STATUS } from '../utils/tripLogic';
 import { acceptTripWithDatabase } from './tripAcceptance';
 
 // AI-assisted: see docs/AI_LOG.md #17
@@ -18,7 +20,14 @@ import {
   startTripWithDatabase,
   completeTripWithDatabase,
   cancelTripWithDatabase,
+  markDriverArrivingWithDatabase,
+  markArrivedAtPickupWithDatabase,
 } from './tripLifecycle';
+import {
+  createTripOfferWithDatabase,
+  rejectTripOfferWithDatabase,
+  subscribeToDriverTripOffersWithDatabase,
+} from './tripOfferService';
 
 const MAX_PENDING_TRIPS = 20;
 
@@ -31,10 +40,8 @@ export async function findActiveDriverTrip(driverId, database = db) {
   const activeTripsQuery = query(
     collection(database, 'trips'),
     where('driverId', '==', driverId),
-    where('status', 'in', [
-      TRIP_STATUS.ACCEPTED,
-      TRIP_STATUS.IN_PROGRESS,
-    ]),
+    // AI-assisted: see docs/AI_LOG.md #28
+    where('status', 'in', [...ACTIVE_TRIP_STATUSES]),
     limit(2)
   );
 
@@ -54,10 +61,16 @@ export async function findActiveDriverTrip(driverId, database = db) {
   return trips[0] ?? null;
 }
 
-export function subscribeToPendingTrips(onData, onError) {
+// AI-assisted: see docs/AI_LOG.md #28
+// Las solicitudes más recientes primero: las antiguas que siguen en
+// pending (vencidas o rechazadas) no ocupan los 20 resultados. Requiere que
+// el viaje tenga createdAt de tipo timestamp y el índice compuesto
+// (status, createdAt desc) de firestore.indexes.json.
+export function subscribeToPendingTrips(onData, onError, database = db) {
   const pendingTripsQuery = query(
-    collection(db, 'trips'),
+    collection(database, 'trips'),
     where('status', '==', TRIP_STATUS.PENDING),
+    orderBy('createdAt', 'desc'),
     limit(MAX_PENDING_TRIPS)
   );
 
@@ -109,6 +122,18 @@ export function subscribeToActiveTrip(tripId, onData, onError) {
 }
 
 // AI-assisted: see docs/AI_LOG.md #17
+// AI-assisted: see docs/AI_LOG.md #28
+// "Voy en camino" (accepted → driver_arriving).
+export async function markDriverArriving(tripId, driverId, database = db) {
+  return markDriverArrivingWithDatabase(database, tripId, driverId);
+}
+
+// "Llegué al origen" (registra arrivedAt).
+export async function markArrivedAtPickup(tripId, driverId, database = db) {
+  return markArrivedAtPickupWithDatabase(database, tripId, driverId);
+}
+
+// "Pasajero a bordo" (driver_arriving con arrivedAt → in_progress).
 export async function startTrip(tripId, driverId, database = db) {
   return startTripWithDatabase(database, tripId, driverId);
 }
@@ -119,6 +144,35 @@ export async function completeTrip(tripId, driverId, database = db) {
 
 export async function cancelTrip(tripId, driverId, database = db) {
   return cancelTripWithDatabase(database, tripId, driverId);
+}
+
+// AI-assisted: see docs/AI_LOG.md #28
+// Ofertas de solicitudes del conductor (ver tripOfferService.js).
+export function subscribeToDriverTripOffers(
+  driverId,
+  onData,
+  onError,
+  database = db
+) {
+  return subscribeToDriverTripOffersWithDatabase(
+    database,
+    driverId,
+    onData,
+    onError
+  );
+}
+
+export async function createTripOffer(driverId, tripId, database = db) {
+  return createTripOfferWithDatabase(database, driverId, tripId);
+}
+
+export async function rejectTripOffer(
+  driverId,
+  tripId,
+  reason,
+  database = db
+) {
+  return rejectTripOfferWithDatabase(database, driverId, tripId, reason);
 }
 
 // AI-assisted: see docs/AI_LOG.md #22
