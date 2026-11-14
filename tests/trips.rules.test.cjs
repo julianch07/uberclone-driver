@@ -957,6 +957,52 @@ test('Reglas de seguridad de viajes', async (t) => {
       );
     });
 
+    // AI-assisted: see docs/AI_LOG.md #31
+    // Regresión: un viaje pendiente sin conductor no puede pasar directamente
+    // a in_progress, aunque el conductor esté habilitado y tenga una oferta
+    // vigente. Debe aceptarse primero y seguir el ciclo completo.
+    await t.test('Impide iniciar un viaje pendiente sin aceptarlo', async () => {
+      await seedDriver(environment, 'driver-skip-pending');
+
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-skip-pending'),
+          validTrip({ status: 'pending', driverId: null })
+        );
+      });
+
+      await seedOffer('driver-skip-pending', 'trip-skip-pending');
+
+      const context = environment.authenticatedContext('driver-skip-pending');
+      const ref = doc(context.firestore(), 'trips', 'trip-skip-pending');
+
+      // Solo estado y hora de inicio.
+      await assertFails(
+        updateDoc(ref, {
+          status: 'in_progress',
+          startedAt: serverTimestamp(),
+        })
+      );
+
+      // Asignándose el viaje en la misma escritura.
+      await assertFails(
+        updateDoc(ref, {
+          status: 'in_progress',
+          driverId: 'driver-skip-pending',
+          startedAt: serverTimestamp(),
+        })
+      );
+
+      // Control: con los mismos datos, la aceptación sí está permitida, de
+      // modo que los rechazos anteriores se deben al salto de estado.
+      await assertSucceeds(
+        updateDoc(ref, {
+          status: 'accepted',
+          driverId: 'driver-skip-pending',
+        })
+      );
+    });
+
     await t.test('Impide modificar la tarifa al iniciar un viaje', async () => {
       await environment.withSecurityRulesDisabled(async (context) => {
         await setDoc(
