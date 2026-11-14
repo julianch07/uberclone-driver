@@ -148,6 +148,9 @@ test('Saldo: efectivo, comisiones, pendiente, neto y saldo con signo', () => {
     pendingCommission: 4000 + 2000,
     settledCommission: 1000,
     netEarnings: 16000 + 8500 + 4000,
+    // AI-assisted: see docs/AI_LOG.md #37
+    gatewayTripCount: 0,
+    gatewayEarnings: 0,
     balance: -(4000 + 2000),
     currency: 'COP',
   });

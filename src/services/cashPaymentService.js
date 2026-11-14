@@ -275,8 +275,16 @@ function cashCommissionsQuery(database, driverId) {
  */
 export async function getDriverBalanceTotalsWithDatabase(database, driverId) {
   const allEntries = cashCommissionsQuery(database, driverId);
+  // AI-assisted: see docs/AI_LOG.md #37
+  // Ganancias de viajes cobrados con Mercado Pago (asientos del backend).
+  // Mismas agregaciones que los totales de efectivo para usar el mismo
+  // índice compuesto (type, cashAmount, commission, driverEarnings).
+  const gatewayEntries = query(
+    collection(database, 'drivers', driverId, 'ledgerEntries'),
+    where('type', '==', LEDGER_ENTRY_TYPE.GATEWAY_EARNING)
+  );
 
-  const [totals, pending] = await Promise.all([
+  const [totals, pending, gateway] = await Promise.all([
     getAggregateFromServer(allEntries, {
       tripCount: count(),
       cashCollected: sum('cashAmount'),
@@ -287,11 +295,19 @@ export async function getDriverBalanceTotalsWithDatabase(database, driverId) {
       query(allEntries, where('status', '==', LEDGER_ENTRY_STATUS.PENDING)),
       { pendingCommission: sum('commission') }
     ),
+    getAggregateFromServer(gatewayEntries, {
+      gatewayTripCount: count(),
+      gatewayCashAmount: sum('cashAmount'),
+      gatewayCommission: sum('commission'),
+      gatewayEarnings: sum('driverEarnings'),
+    }),
   ]);
 
   return buildBalanceFromTotals({
     ...totals.data(),
     ...pending.data(),
+    gatewayTripCount: gateway.data().gatewayTripCount,
+    gatewayEarnings: gateway.data().gatewayEarnings,
   });
 }
 
