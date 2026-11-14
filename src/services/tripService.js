@@ -14,6 +14,9 @@ import {
 import { db } from '../config/firebase';
 import { ACTIVE_TRIP_STATUSES, TRIP_STATUS } from '../utils/tripLogic';
 import { acceptTripWithDatabase } from './tripAcceptance';
+// AI-assisted: see docs/AI_LOG.md #40
+import { fetchTripHistoryPage } from './tripHistoryService';
+import { DEFAULT_HISTORY_FILTERS } from '../utils/tripHistoryLogic';
 
 // AI-assisted: see docs/AI_LOG.md #17
 import {
@@ -190,10 +193,6 @@ export async function rejectTripOffer(
 // Debe coincidir con el límite de la regla de historial en firestore.rules.
 export const MAX_HISTORY_TRIPS = 50;
 
-function finishedAtSeconds(trip) {
-  return (trip.completedAt ?? trip.cancelledAt)?.seconds ?? 0;
-}
-
 /**
  * Historial de viajes finalizados (completados, pagados o cancelados) del conductor.
  * Lo usan las pantallas de historial, ganancias y pagos.
@@ -201,6 +200,12 @@ function finishedAtSeconds(trip) {
  * @param {number} maxResults Máximo de resultados (1 a MAX_HISTORY_TRIPS).
  * @returns {Promise<Array>} Viajes, del más reciente al más antiguo.
  */
+// AI-assisted: see docs/AI_LOG.md #40
+// Antes se pedían hasta 50 viajes sin orden de Firestore y se ordenaban en
+// la app, de modo que con más de 50 viajes podían quedar fuera los más
+// recientes. Ahora Firestore ordena por createdAt (desc) antes de limitar;
+// sin el índice compuesto, se ordena la lectura completa en la app
+// (tripHistoryService.js).
 export async function getDriverTripHistory(
   driverId,
   maxResults = MAX_HISTORY_TRIPS,
@@ -215,27 +220,12 @@ export async function getDriverTripHistory(
     MAX_HISTORY_TRIPS
   );
 
-  const historyQuery = query(
-    collection(database, 'trips'),
-    where('driverId', '==', driverId),
-    // AI-assisted: see docs/AI_LOG.md #29
-    // paid: viajes con el pago registrado (efectivo o, más adelante, digital).
-    where('status', 'in', [
-      TRIP_STATUS.COMPLETED,
-      TRIP_STATUS.PAID,
-      TRIP_STATUS.CANCELLED,
-    ]),
-    limit(historyLimit)
-  );
+  const { trips } = await fetchTripHistoryPage(driverId, DEFAULT_HISTORY_FILTERS, {
+    pageSize: historyLimit,
+    database,
+  });
 
-  const snapshot = await getDocs(historyQuery);
-
-  return snapshot.docs
-    .map((tripDocument) => ({
-      id: tripDocument.id,
-      ...tripDocument.data(),
-    }))
-    .sort((a, b) => finishedAtSeconds(b) - finishedAtSeconds(a));
+  return trips.slice(0, historyLimit);
 }
 
 // AI-assisted: see docs/AI_LOG.md #29
