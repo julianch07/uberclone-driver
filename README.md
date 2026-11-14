@@ -51,9 +51,15 @@ uberclone-driver/
 ├── assets/
 ├── docs/
 │   └── AI_LOG.md
+├── functions/          # backend de pagos (Cloud Functions, Mercado Pago)
+│   ├── src/
+│   ├── test/
+│   ├── .env.example
+│   └── index.js
 ├── src/
 │   ├── components/
 │   │   ├── map/
+│   │   ├── payments/
 │   │   ├── registration/
 │   │   └── trips/
 │   ├── config/
@@ -70,6 +76,7 @@ uberclone-driver/
 ├── app.config.js
 ├── app.json
 ├── firebase.json
+├── firebase.demo.json  # emuladores del MODO DEMOSTRACIÓN de pagos
 ├── firestore.indexes.json
 ├── firestore.rules
 ├── index.js
@@ -99,6 +106,7 @@ Después del registro, la aplicación incluye:
 - **Ruta del viaje:** recorrido hasta el punto de recogida o el destino, calculado con el servicio público OSRM.
 - **Ganancias, pagos e historial:** resumen con comisión del 20 % para la plataforma y 80 % para el conductor, e historial de viajes completados, pagados y cancelados con el estado de su pago.
 - **Pagos en efectivo y saldo:** el conductor confirma el efectivo recibido de cada viaje finalizado; la comisión del 20 % queda registrada como deuda pendiente con la plataforma y la pantalla Pagos muestra su saldo.
+- **Pasarela de pagos (modo de prueba):** cobro con Mercado Pago Checkout Pro mediante un backend en Cloud Functions que crea la preferencia, confirma el pago con la API y actualiza el viaje y el saldo (ver [Pasarela de pagos](#pasarela-de-pagos-mercado-pago-checkout-pro)).
 - **Perfil:** datos del conductor, del vehículo y acceso a la edición del registro.
 
 Las reglas de `firestore.rules` restringen cada operación al conductor propietario y validan su estado. Las funcionalidades se verificaron en Expo Go.
@@ -107,7 +115,8 @@ Limitaciones conocidas:
 
 - El plazo de 15 segundos cuenta desde que cada conductor recibe la solicitud. Una solicitud que nadie acepta sigue en `pending` en Firestore: marcarla como vencida o rechazada para todos requiere un backend.
 - El historial consulta un máximo de 50 viajes finalizados.
-- El registro del efectivo es una declaración del conductor: la app no puede verificar que el pasajero pagó. La liquidación de comisiones y los pagos digitales requieren un backend (pendiente).
+- El registro del efectivo es una declaración del conductor: la app no puede verificar que el pasajero pagó. La liquidación de comisiones requiere un backend administrativo (pendiente).
+- El cobro con Mercado Pago (modo de prueba) tiene backend en `functions/`, probado con los emuladores; su despliegue requiere el plan Blaze. Stripe no está integrado.
 - La distancia y la duración de cada viaje deben venir en el documento de la solicitud (`distanceKm`, `durationMin`); la consulta a Google Distance Matrix al crear la solicitud no está integrada.
 - El servicio público de OSRM es adecuado para pruebas, pero no garantiza disponibilidad en producción.
 - La configuración nativa de Google Maps en un *development build* está pendiente.
@@ -238,8 +247,87 @@ Repetir la operación o pulsar dos veces no duplica nada.
 
 - La confirmación del efectivo es una declaración del conductor, no una verificación bancaria.
 - No existe un backend administrativo. Las comisiones quedan `pending`; su liquidación (estado `settled` y asientos de pago) deberá escribirla un servidor con credenciales de administrador, que las reglas no conceden a la app.
-- Los viajes con `mercadopago` o `stripe` quedan en `completed` con "Pago digital pendiente" hasta que el módulo de pagos digitales confirme el pago desde un backend.
+- Los viajes con `mercadopago` se cobran con la pasarela (ver [Pasarela de pagos](#pasarela-de-pagos-mercado-pago-checkout-pro)). Los viajes con `stripe` quedan en `completed` con "Pago digital pendiente": Stripe no está integrado.
 - Los viajes finalizados antes del módulo de tarifas, o sin `paymentMethod`, no pueden registrar un cobro.
+
+## Pasarela de pagos (Mercado Pago Checkout Pro)
+
+Cobro de los viajes con `paymentMethod: "mercadopago"` en **modo de prueba** (guía, sección 4). No se procesa dinero real.
+
+### Flujo
+
+1. Al finalizar el viaje, la pestaña Viajes muestra **Cobro con Mercado Pago** con el total (tarifa + propina), la comisión y la ganancia neta.
+2. **Cobrar con Mercado Pago** llama a la función `createPaymentPreference` del backend con el `tripId` y el monto. El backend comprueba que el viaje es del conductor, está `completed` y se paga con Mercado Pago, calcula el monto con el desglose guardado (el de la app solo se compara) y crea la preferencia con el access token, que nunca está en la app.
+3. La app abre el checkout en el navegador del sistema (`expo-web-browser`, incluido en Expo Go) y el pasajero paga con una tarjeta de prueba.
+4. Mercado Pago notifica el pago al webhook `mercadoPagoWebhook` (y el navegador vuelve a `paymentReturn`). En ambos casos el backend **consulta el pago en la API** (`GET /v1/payments/{id}`), comprueba viaje, método, moneda COP y monto, y aplica el resultado en una transacción idempotente:
+   - `approved`: `trips/{tripId}` pasa a `status: "paid"`, `paymentStatus: "approved"`, `paymentId` y `paidAt`; se crea `drivers/{uid}/ledgerEntries/mp_{tripId}` (`gateway_earning`) con la ganancia neta a favor del conductor.
+   - `pending` / `in_process`: `paymentStatus: "pending"`.
+   - `rejected` / `cancelled`: `paymentStatus: "rejected"`; el viaje sigue `completed` y se puede reintentar.
+5. La app escucha el viaje en tiempo real y muestra el resumen del cobro. La pantalla **Pagos** muestra el saldo: ganancias cobradas con la pasarela menos comisiones pendientes de viajes en efectivo.
+
+### Seguridad
+
+- `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` se guardan en Secret Manager (`defineSecret`); no están en el código, en `.env` de la app ni en el repositorio. Solo credenciales de prueba.
+- El webhook verifica la firma `x-signature` (HMAC-SHA256 con la plantilla del SDK oficial de Node de Mercado Pago) y responde 401 si no es válida. Aunque la firma faltara, el estado siempre se toma de la API, nunca de la notificación ni de la URL de retorno.
+- Un pago aprobado no retrocede, una notificación repetida no duplica la ganancia y un segundo pago aprobado del mismo viaje no se aplica (queda en `paymentEvents` para revisión).
+- `firestore.rules` no cambia: el conductor sigue sin poder marcar como pagado un viaje digital ni crear asientos de ganancia; solo el backend (Admin SDK) los escribe. `paymentEvents` no es accesible desde la app.
+- El pago en efectivo funciona igual que antes.
+
+### Habilitar el pago de prueba real
+
+Requiere el plan **Blaze** de Firebase (las Cloud Functions no se pueden desplegar en Spark). Pasos:
+
+1. Activar Blaze con una alerta y un límite de presupuesto bajos.
+2. En Mercado Pago Developers (Colombia), crear una aplicación de Checkout Pro y copiar el **access token de prueba**.
+3. Cargar los secretos (la CLI pide el valor; no se escribe en archivos):
+   ```bash
+   npx firebase-tools functions:secrets:set MP_ACCESS_TOKEN --project uberclone-driver-8e0bf
+   npx firebase-tools functions:secrets:set MP_WEBHOOK_SECRET --project uberclone-driver-8e0bf
+   ```
+4. Instalar las dependencias del backend y desplegar solo las funciones:
+   ```bash
+   npm --prefix functions install
+   npx firebase-tools deploy --only functions --project uberclone-driver-8e0bf
+   ```
+5. En Mercado Pago (Tus integraciones → Webhooks), configurar la URL `https://us-central1-uberclone-driver-8e0bf.cloudfunctions.net/mercadoPagoWebhook` con el evento **Pagos**, y copiar la clave secreta de la firma en `MP_WEBHOOK_SECRET` (paso 3) si aún no estaba.
+6. Crear un viaje con `paymentMethod: "mercadopago"`, completarlo y pagar con una tarjeta de prueba de Colombia, por ejemplo Visa `4013 5406 8274 6260`, CVV `123`, vencimiento `11/30`. El nombre del titular decide el resultado: `APRO` (aprobado), `CONT` (pendiente), `OTHE` (rechazado).
+
+Parámetros no secretos opcionales en `functions/.env` (ver `functions/.env.example`): `MP_CHECKOUT_URL_FIELD` (`init_point` o `sandbox_init_point`), `MP_WEBHOOK_SIGNATURE_MODE` (`enforce` o `report`) y `PUBLIC_FUNCTIONS_BASE_URL`.
+
+### MODO DEMOSTRACIÓN (sin credenciales ni Blaze)
+
+Para presentar el flujo digital completo desde Expo Go sin credenciales de Mercado Pago. **No es Mercado Pago ni un pago real:** el checkout es una página simulada de UberClone, identificada como «MODO DEMOSTRACIÓN», y nada se escribe en el Firestore real.
+
+- Todo ocurre en los **emuladores locales** del Mac: Firestore en el puerto 8181 y Functions en el 5002 (`firebase.demo.json`). El inicio de sesión anónimo sigue siendo el real, solo para identificar al conductor.
+- El backend es el mismo; solo cambia el origen del pago. `createPaymentPreference` crea una preferencia de demostración y el checkout simulado registra el resultado (aprobado, pendiente o rechazado), que `processPayment` valida y aplica igual que un pago real.
+- Los viajes, asientos y auditorías llevan `paymentMode: "demo"` y los IDs empiezan por `DEMO-`. La app muestra un aviso fijo «MODO DEMOSTRACIÓN» y etiquetas como «Pago aprobado (MODO DEMOSTRACIÓN)».
+- **Protecciones:**
+  - El backend solo activa el modo con `PAYMENTS_DEMO_MODE=true`, dentro del emulador de Functions y con el emulador de Firestore. Si se pide en otro entorno, `functions/index.js` no carga, así que no se puede desplegar.
+  - En modo demostración no existen el webhook ni el retorno reales, y el webhook real no acepta IDs `DEMO-`.
+  - La app solo lo activa en desarrollo (`__DEV__`, Expo Go) con `EXPO_PUBLIC_PAYMENTS_DEMO=true` y una IP local; un build de producción lo ignora.
+- El pago en efectivo funciona igual, también dentro de la demostración.
+
+**Iniciar la demostración** (Mac y móvil en la misma red Wi-Fi; tres terminales en la raíz del proyecto):
+
+```bash
+# Terminal 1: emuladores en modo demostración (Ctrl+C para detener)
+npm --prefix functions install        # solo la primera vez
+npm run demo:emuladores
+
+# Terminal 2: app en Expo Go conectada a los emuladores (escanear el QR)
+npm run demo:app
+
+# Terminal 3: copiar el UID de Metro ("Conductor autenticado: <UID>") y preparar los datos
+npm run demo:preparar -- --uid <UID>
+# En Metro pulsar r para recargar la app; en Inicio, conectarse.
+npm run demo:solicitud -- --metodo mercadopago   # solicitud nueva (15 s para aceptarla)
+npm run demo:solicitud -- --metodo cash          # el efectivo sigue funcionando
+npm run demo:solicitud -- --completado --uid <UID>  # atajo: viaje ya finalizado, listo para cobrar
+```
+
+En la app: aceptar la solicitud, recorrer el viaje, finalizarlo y pulsar **Abrir checkout de demostración**; en la página simulada, **Aprobar pago de demostración** y volver a la app. Los datos se ven en la interfaz de los emuladores, `http://127.0.0.1:4001/firestore`, no en Firebase Console. Al detener los emuladores, los datos de la demostración se borran.
+
+Si la IP detectada no es la de la Wi-Fi, se puede indicar con `--ip`, por ejemplo `npm run demo:emuladores -- --ip 192.168.1.5`.
 
 ## Ubicación GPS y Google Maps
 
@@ -283,8 +371,11 @@ npx firebase-tools emulators:start --only firestore
 Con el emulador en ejecución, en otra terminal:
 
 ```bash
+npm --prefix functions install   # una vez: dependencias del backend de pagos
 npm run test:all
 ```
+
+`test:all` incluye las pruebas del backend de Mercado Pago (`npm run test:functions`): lógica, firma del webhook y manejadores contra el emulador con una API de Mercado Pago simulada.
 
 Para generar solicitudes de prueba en el emulador, ver la sección [Solicitudes de viaje](#solicitudes-de-viaje).
 
