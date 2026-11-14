@@ -1374,7 +1374,7 @@ No hagas commits. ChatGPT y yo realizaremos la revisión final y el control de v
   - No se instalaron dependencias ni se desplegó nada.
 - **Archivos creados:** `src/utils/cashPaymentLogic.js`, `src/services/cashPaymentService.js`, `src/services/firestorePagination.js`, `tests/pagination.test.cjs`, `src/hooks/useDriverPayments.js`, `src/components/payments/PendingCashPayments.js`, `tests/cashPayment.test.cjs`, `tests/cashPayment.integration.test.cjs` y `tests/payments.rules.test.cjs`.
 - **Archivos modificados:** `src/utils/tripLogic.js`, `src/services/tripService.js`, `src/components/trips/TripRequests.js`, `src/screens/home/PaymentSummaryScreen.js`, `src/screens/home/EarningsScreen.js`, `src/screens/home/TripHistoryScreen.js`, `firestore.rules`, `scripts/dev/simulateTripRequests.cjs`, `tests/activeTripService.test.cjs`, `package.json` (scripts de pruebas), `README.md` y `docs/AI_LOG.md`.
-- **Commit:** Pendiente (lo registra el integrante).
+- **Commit:** `bfa3197` (`feat: implementar pagos en efectivo y saldo del conductor`), rama `feat/pagos-efectivo-saldo-conductor`.
 - **Verificación:**
   - `npm run test:all` con el emulador local: 139 unitarias, 37 de integración y 150 de reglas, **326 aprobadas y 0 fallidas**.
   - Pruebas nuevas del módulo: 17 unitarias, 13 de integración y 29 de reglas. Los ajustes añadieron 130 asientos (con liquidados mezclados), 65 cobros pendientes, 30 viajes digitales, 10 pagados y 3 antiguos; se comprobó que los totales del servidor coinciden con la suma de todos los asientos y difieren de la suma de los 100 más recientes. También se probaron las lecturas sin permiso, sin datos parciales.
