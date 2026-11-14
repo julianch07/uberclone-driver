@@ -18,8 +18,11 @@ import { useDriverBalance } from '../../hooks/useDriverPayments';
 import {
   isFinishedTrip,
   LEDGER_ENTRY_STATUS,
+  LEDGER_ENTRY_TYPE,
 } from '../../utils/cashPaymentLogic';
 import { timestampToMillis } from '../../utils/tripRequestTimer';
+// AI-assisted: see docs/AI_LOG.md #38
+import { DEMO_LABEL, PAYMENTS_DEMO } from '../../config/paymentsDemo';
 
 function formatEntryDate(entry) {
   const millis = timestampToMillis(entry.createdAt);
@@ -102,14 +105,37 @@ export default function PaymentSummaryScreen({ uid }) {
           sin ellos no se muestra ningún saldo parcial. */}
       {balance ? (
       <>
+      {/* AI-assisted: see docs/AI_LOG.md #37 */}
+      {/* Saldo (guía, sección 5): ganancias de viajes pagados por la
+          pasarela menos comisiones pendientes de viajes en efectivo. */}
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>Comisión pendiente con la plataforma</Text>
-        <Text style={styles.cardValue}>{formatCurrency(balance.pendingCommission)}</Text>
-        <Text style={styles.cardSub}>
-          {balance.pendingCommission > 0
-            ? `Saldo: ${formatCurrency(balance.balance)} (debes esta comisión por viajes en efectivo)`
-            : 'No tienes comisiones pendientes.'}
+        <Text style={styles.cardLabel}>Saldo con la plataforma</Text>
+        <Text style={styles.cardValue}>
+          {balance.balance < 0 ? '- ' : ''}
+          {formatCurrency(Math.abs(balance.balance))}
         </Text>
+        <Text style={styles.cardSub}>
+          {balance.balance < 0
+            ? 'Debes este valor a la plataforma por comisiones de viajes en efectivo.'
+            : balance.balance > 0
+              ? 'La plataforma te debe este valor por viajes cobrados con Mercado Pago.'
+              : 'No tienes saldo pendiente.'}
+        </Text>
+        <Text style={styles.cardSub}>
+          Mercado Pago a tu favor: {formatCurrency(balance.gatewayEarnings)} ·
+          Comisión de efectivo pendiente: {formatCurrency(balance.pendingCommission)}
+        </Text>
+      </View>
+
+      <Text style={styles.sectionTitle}>
+        {PAYMENTS_DEMO.enabled
+          ? `Viajes cobrados con la pasarela (${DEMO_LABEL}: pagos simulados)`
+          : 'Viajes cobrados con Mercado Pago'}
+      </Text>
+      <View style={styles.detailsCard}>
+        <DetailRow label="Viajes" value={String(balance.gatewayTripCount)} />
+        <View style={styles.divider} />
+        <DetailRow label="Ganancia neta a tu favor" value={formatCurrency(balance.gatewayEarnings)} isTotal />
       </View>
 
       <Text style={styles.sectionTitle}>Viajes cobrados en efectivo</Text>
@@ -138,35 +164,51 @@ export default function PaymentSummaryScreen({ uid }) {
       </View>
 
       {/* AI-assisted: see docs/AI_LOG.md #29 */}
-      <Text style={styles.sectionTitle}>Comisiones por viaje</Text>
-      {hasMoreEntries ? (
+      <Text style={styles.sectionTitle}>Movimientos del saldo</Text>
+      {hasMoreEntries && balance ? (
         <Text style={styles.emptyText}>
           Se muestran los {entries.length} movimientos más recientes de{' '}
-          {balance.tripCount}. Los totales incluyen todos.
+          {balance.tripCount + balance.gatewayTripCount}. Los totales incluyen todos.
         </Text>
       ) : null}
       {entries.length === 0 ? (
         <Text style={styles.emptyText}>
-          Aún no tienes viajes cobrados en efectivo.
+          Aún no tienes viajes cobrados en efectivo ni con Mercado Pago.
         </Text>
       ) : (
         <View style={styles.detailsCard}>
-          {entries.map((entry) => (
-            <View key={entry.id} style={styles.entry}>
-              <View>
-                <Text style={styles.entryDate}>{formatEntryDate(entry)}</Text>
-                <Text style={styles.entryDetail}>
-                  Efectivo {formatCurrency(entry.cashAmount)}
-                </Text>
+          {entries.map((entry) => {
+            // AI-assisted: see docs/AI_LOG.md #37
+            const isGateway = entry.type === LEDGER_ENTRY_TYPE.GATEWAY_EARNING;
+
+            return (
+              <View key={entry.id} style={styles.entry}>
+                {/* AI-assisted: see docs/AI_LOG.md #39 */}
+                <View style={styles.entryInfo}>
+                  <Text style={styles.entryDate}>{formatEntryDate(entry)}</Text>
+                  <Text style={styles.entryDetail}>
+                    {isGateway
+                      ? `${entry.paymentMode === 'demo' ? 'Pago simulado (MODO DEMOSTRACIÓN)' : 'Mercado Pago'} ${formatCurrency(entry.fare + (entry.tip || 0))}`
+                      : `Efectivo ${formatCurrency(entry.cashAmount)}`}
+                  </Text>
+                </View>
+                <View style={styles.entryRight}>
+                  {isGateway ? (
+                    <Text style={styles.positiveText}>+ {formatCurrency(entry.driverEarnings)}</Text>
+                  ) : (
+                    <Text style={styles.negativeText}>- {formatCurrency(entry.commission)}</Text>
+                  )}
+                  <Text style={styles.entryStatus}>
+                    {entry.status === LEDGER_ENTRY_STATUS.SETTLED
+                      ? 'Liquidada'
+                      : isGateway
+                        ? 'A tu favor'
+                        : 'Pendiente'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.entryRight}>
-                <Text style={styles.negativeText}>- {formatCurrency(entry.commission)}</Text>
-                <Text style={styles.entryStatus}>
-                  {entry.status === LEDGER_ENTRY_STATUS.SETTLED ? 'Liquidada' : 'Pendiente'}
-                </Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
@@ -177,7 +219,10 @@ export default function PaymentSummaryScreen({ uid }) {
           que la comisión del 20 % queda pendiente a favor de la plataforma.
           Las comisiones se marcan como liquidadas cuando la plataforma
           registra su pago; desde la app no se pueden marcar como pagadas.
-          Los pagos digitales se confirmarán con la pasarela de pago.
+          En los viajes cobrados con Mercado Pago (modo de prueba) la
+          plataforma recibe el pago y tu ganancia neta queda a tu favor; solo
+          el servidor la registra, después de confirmar el pago con la
+          pasarela.
         </Text>
       </View>
     </ScrollView>
@@ -262,6 +307,10 @@ const styles = StyleSheet.create({
   negativeText: {
     color: '#D93025',
   },
+  // AI-assisted: see docs/AI_LOG.md #37
+  positiveText: {
+    color: '#157347',
+  },
   totalText: {
     fontSize: 18,
     fontWeight: '800',
@@ -300,8 +349,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 14,
   },
+  // AI-assisted: see docs/AI_LOG.md #39
+  // El detalle se ajusta en varias líneas y el importe nunca se encoge.
+  entryInfo: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
+  },
   entryRight: {
     alignItems: 'flex-end',
+    flexShrink: 0,
   },
   entryDate: {
     fontSize: 13,

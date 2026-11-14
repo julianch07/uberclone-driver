@@ -107,7 +107,8 @@ export default function EarningsScreen({ uid }) {
           const breakdown = getTripEarnings(item);
           return (
             <View style={styles.tripItem}>
-              <View>
+              {/* AI-assisted: see docs/AI_LOG.md #39 */}
+              <View style={styles.tripInfo}>
                 <Text style={styles.tripDate}>
                   {item.completedAt ? new Date(item.completedAt.seconds * 1000).toLocaleDateString() : 'Fecha desconocida'}
                 </Text>
@@ -228,24 +229,35 @@ const styles = StyleSheet.create({
     color: '#697386',
     marginTop: 2,
   },
+  // AI-assisted: see docs/AI_LOG.md #39
+  // La columna de texto ocupa el espacio libre y se ajusta en varias líneas;
+  // la columna del importe no se encoge, así el valor nunca se corta.
+  tripInfo: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
+  },
   tripAddress: {
     fontSize: 14,
     color: '#161B26',
     marginTop: 4,
-    width: 180,
   },
   tripEarnings: {
     alignItems: 'flex-end',
+    flexShrink: 0,
+    maxWidth: '55%',
   },
   earningsText: {
     fontSize: 16,
     fontWeight: '800',
     color: '#157347',
+    textAlign: 'right',
   },
   totalText: {
     fontSize: 11,
     color: '#697386',
     marginTop: 2,
+    textAlign: 'right',
   },
   emptyText: {
     textAlign: 'center',

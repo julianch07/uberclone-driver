@@ -1,0 +1,17 @@
+{
+  "name": "uberclone-driver-functions",
+  "description": "Backend de pagos con Mercado Pago Checkout Pro (Cloud Functions)",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "test": "node --test test/paymentLogic.test.cjs test/signature.test.cjs test/demoMode.test.cjs",
+    "test:emulator": "node --test test/handlers.emulator.test.cjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.1",
+    "firebase-functions": "^7.4.0"
+  }
+}

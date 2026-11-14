@@ -1,107 +1,149 @@
 // AI-assisted: see docs/AI_LOG.md #22
-import React, { useEffect, useState } from 'react';
+// AI-assisted: see docs/AI_LOG.md #40
+// Historial de carreras (guía, sección 6): FlatList ordenada del viaje más
+// reciente al más antiguo, filtros combinables (periodo y método de pago),
+// carga incremental de 20 en 20 y detalle con mapa al tocar un viaje.
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { getDriverTripHistory } from '../../services/tripService';
-import { formatCurrency } from '../../utils/fareLogic';
-// AI-assisted: see docs/AI_LOG.md #29
-import { getTripPaymentLabel } from '../../utils/cashPaymentLogic';
 
-// AI-assisted: see docs/AI_LOG.md #29
-const STATUS_BADGES = {
-  completed: { label: 'Completado', style: 'successBadge' },
-  paid: { label: 'Pagado', style: 'successBadge' },
-  cancelled: { label: 'Cancelado', style: 'errorBadge' },
-};
+import HistoryFilters from '../../components/history/HistoryFilters';
+import TripHistoryDetail from '../../components/history/TripHistoryDetail';
+import useTripHistory from '../../hooks/useTripHistory';
+import { formatCurrency } from '../../utils/fareLogic';
+import {
+  buildHistoryListItem,
+  DEFAULT_HISTORY_FILTERS,
+  HISTORY_PERIOD,
+} from '../../utils/tripHistoryLogic';
+
+function TripHistoryItem({ trip, onPress }) {
+  const item = buildHistoryListItem(trip);
+
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityHint="Abre el detalle del viaje"
+      style={styles.tripItem}
+      onPress={() => onPress(trip)}
+    >
+      <View style={styles.header}>
+        <Text style={styles.date} numberOfLines={1}>{item.dateLabel}</Text>
+        <View style={[styles.badge, item.cancelled ? styles.errorBadge : styles.successBadge]}>
+          <Text style={styles.badgeText}>{item.statusLabel}</Text>
+        </View>
+      </View>
+
+      <View style={styles.location}>
+        <View style={styles.dot} />
+        <Text style={styles.address} numberOfLines={1}>{item.pickupAddress}</Text>
+      </View>
+      <View style={[styles.location, styles.locationSpacing]}>
+        <View style={[styles.dot, styles.destinationDot]} />
+        <Text style={styles.address} numberOfLines={1}>{item.destinationAddress}</Text>
+      </View>
+
+      <Text style={styles.meta}>
+        {item.categoryLabel} · {item.paymentMethodLabel}
+      </Text>
+      <Text style={styles.paymentLabel}>{item.paymentStatusLabel}</Text>
+
+      <View style={styles.footer}>
+        <View style={styles.amountBlock}>
+          <Text style={styles.amountLabel}>Tarifa</Text>
+          <Text style={styles.fareValue}>
+            {item.fare === null ? 'Sin cobro' : formatCurrency(item.fare)}
+          </Text>
+        </View>
+        <View style={[styles.amountBlock, styles.amountRight]}>
+          <Text style={styles.amountLabel}>Ganancia neta</Text>
+          <Text style={styles.earningsValue}>
+            {item.driverEarnings === null ? '—' : formatCurrency(item.driverEarnings)}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function TripHistoryScreen({ uid }) {
-  const [loading, setLoading] = useState(true);
-  const [trips, setTrips] = useState([]);
-  const [error, setError] = useState('');
+  const [filters, setFilters] = useState(DEFAULT_HISTORY_FILTERS);
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const {
+    trips,
+    loading,
+    loadingMore,
+    error,
+    hasMore,
+    usingFallback,
+    reload,
+    loadMore,
+  } = useTripHistory(uid, filters);
 
-  useEffect(() => {
-    async function loadHistory() {
-      try {
-        setLoading(true);
-        const history = await getDriverTripHistory(uid);
-        setTrips(history);
-      } catch (e) {
-        setError('No se pudo cargar el historial.');
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
+  const openDetail = useCallback((trip) => setSelectedTrip(trip), []);
+  const closeDetail = useCallback(() => setSelectedTrip(null), []);
 
-    loadHistory();
-  }, [uid]);
+  const filtered =
+    filters.period !== HISTORY_PERIOD.ALL || filters.paymentMethod !== 'all';
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#276EF1" />
-      </View>
-    );
-  }
+  const header = (
+    <View>
+      <HistoryFilters filters={filters} onChange={setFilters} />
+      {error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.error}>{error}</Text>
+          <TouchableOpacity accessibilityRole="button" onPress={reload}>
+            <Text style={styles.retry}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {usingFallback ? (
+        <Text style={styles.notice}>
+          Historial ordenado en el dispositivo mientras se publica el índice de Firestore.
+        </Text>
+      ) : null}
+      {loading ? <ActivityIndicator style={styles.loader} size="large" color="#276EF1" /> : null}
+    </View>
+  );
+
+  const footer = loadingMore ? (
+    <ActivityIndicator style={styles.loader} color="#276EF1" />
+  ) : hasMore && !loading ? (
+    <TouchableOpacity accessibilityRole="button" style={styles.moreButton} onPress={loadMore}>
+      <Text style={styles.moreText}>Cargar más viajes</Text>
+    </TouchableOpacity>
+  ) : null;
 
   return (
     <View style={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      
       <FlatList
-        data={trips}
+        data={loading ? [] : trips}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.tripItem}>
-            <View style={styles.header}>
-              <Text style={styles.date}>
-                {item.completedAt || item.cancelledAt || item.createdAt 
-                  ? new Date((item.completedAt || item.cancelledAt || item.createdAt).seconds * 1000).toLocaleString() 
-                  : 'Fecha desconocida'}
-              </Text>
-              {/* AI-assisted: see docs/AI_LOG.md #29 */}
-              <View style={[styles.badge, styles[(STATUS_BADGES[item.status] || STATUS_BADGES.cancelled).style]]}>
-                <Text style={styles.badgeText}>
-                  {(STATUS_BADGES[item.status] || { label: item.status }).label}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.paymentLabel}>{getTripPaymentLabel(item)}</Text>
-            
-            <View style={styles.body}>
-              <View style={styles.location}>
-                <View style={styles.dot} />
-                <Text style={styles.address} numberOfLines={1}>{item.pickup?.address}</Text>
-              </View>
-              <View style={[styles.location, { marginTop: 8 }]}>
-                <View style={[styles.dot, { backgroundColor: '#276EF1' }]} />
-                <Text style={styles.address} numberOfLines={1}>{item.destination?.address}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.footer}>
-              <Text style={styles.fareLabel}>Tarifa</Text>
-              {/* AI-assisted: see docs/AI_LOG.md #27 */}
-              {/* Tarifa final guardada al finalizar; si no existe (viaje
-                  cancelado o anterior al módulo de tarifas), la estimada. */}
-              <Text style={styles.fareValue}>
-                {formatCurrency(
-                  typeof item.fare === 'number' ? item.fare : item.estimatedFare
-                )}
-              </Text>
-            </View>
-          </View>
-        )}
+        renderItem={({ item }) => <TripHistoryItem trip={item} onPress={openDetail} />}
+        ListHeaderComponent={header}
+        ListFooterComponent={footer}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No tienes viajes registrados.</Text>
+          loading || error ? null : (
+            <Text style={styles.emptyText}>
+              {filtered
+                ? 'No hay viajes para los filtros seleccionados.'
+                : 'No tienes viajes registrados.'}
+            </Text>
+          )
         }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        refreshing={false}
+        onRefresh={reload}
         contentContainerStyle={styles.listContent}
       />
+      <TripHistoryDetail trip={selectedTrip} onClose={closeDetail} />
     </View>
   );
 }
@@ -111,13 +153,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F6F8',
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   listContent: {
     padding: 20,
+  },
+  loader: {
+    marginVertical: 16,
   },
   tripItem: {
     backgroundColor: '#FFFFFF',
@@ -134,9 +174,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
+    gap: 8,
   },
   date: {
+    flex: 1,
     fontSize: 12,
     color: '#697386',
     fontWeight: '600',
@@ -145,13 +187,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-  },
-  // AI-assisted: see docs/AI_LOG.md #29
-  paymentLabel: {
-    fontSize: 12,
-    color: '#697386',
-    marginTop: -8,
-    marginBottom: 12,
+    flexShrink: 0,
   },
   successBadge: {
     backgroundColor: '#D1FAE5',
@@ -164,12 +200,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
   },
-  body: {
-    marginBottom: 16,
-  },
   location: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  locationSpacing: {
+    marginTop: 8,
   },
   dot: {
     width: 8,
@@ -178,21 +214,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#AAB0B8',
     marginRight: 10,
   },
+  destinationDot: {
+    backgroundColor: '#276EF1',
+  },
   address: {
     fontSize: 14,
     color: '#161B26',
     flex: 1,
   },
+  meta: {
+    fontSize: 13,
+    color: '#344054',
+    marginTop: 12,
+  },
+  paymentLabel: {
+    fontSize: 12,
+    color: '#697386',
+    marginTop: 2,
+  },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     paddingTop: 12,
+    marginTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#F0F2F5',
+    gap: 12,
   },
-  fareLabel: {
-    fontSize: 13,
+  // Tarifa y ganancia se reparten el ancho: ningún importe empuja al otro.
+  amountBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  amountRight: {
+    alignItems: 'flex-end',
+  },
+  amountLabel: {
+    fontSize: 12,
     color: '#697386',
   },
   fareValue: {
@@ -200,14 +259,46 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#161B26',
   },
+  earningsValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#157347',
+    textAlign: 'right',
+  },
   emptyText: {
     textAlign: 'center',
     color: '#697386',
-    marginTop: 40,
+    marginTop: 24,
+  },
+  errorBox: {
+    backgroundColor: '#FEF3F2',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
   },
   error: {
     color: '#B42318',
-    margin: 20,
-    textAlign: 'center',
+  },
+  retry: {
+    color: '#276EF1',
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  notice: {
+    color: '#697386',
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  moreButton: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 18,
+    backgroundColor: '#E8F0FE',
+    marginBottom: 12,
+  },
+  moreText: {
+    color: '#276EF1',
+    fontWeight: '700',
   },
 });

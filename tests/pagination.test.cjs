@@ -72,6 +72,9 @@ test('Saldo a partir de los totales del servidor', () => {
       pendingCommission: 400_000,
       settledCommission: 120_000,
       netEarnings: 2_080_000,
+      // AI-assisted: see docs/AI_LOG.md #37
+      gatewayTripCount: 0,
+      gatewayEarnings: 0,
       balance: -400_000,
       currency: 'COP',
     }

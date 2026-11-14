@@ -11,6 +11,9 @@ function serviceWithDocs(docs) {
       calls.push(['where', field, operator, value]); return [field, operator, value];
     },
     limit: (amount) => { calls.push(['limit', amount]); return amount; },
+    // AI-assisted: see docs/AI_LOG.md #40
+    orderBy: (field, direction) => { calls.push(['orderBy', field, direction]); return [field, direction]; },
+    startAfter: (cursor) => { calls.push(['startAfter', cursor]); return cursor; },
     query: (...args) => args,
     getDocs: async () => ({ docs: docs.map(({ id, ...data }) => ({
       id, data: () => data,
@@ -30,21 +33,25 @@ function serviceWithDocs(docs) {
 }
 
 // AI-assisted: see docs/AI_LOG.md #23
-test('El historial consulta solo viajes finalizados propios con límite 50', async () => {
+// AI-assisted: see docs/AI_LOG.md #40
+// Firestore ordena por createdAt (desc) ANTES de limitar; la app conserva
+// ese orden (antes se limitaba sin orden y se ordenaba en la app).
+test('El historial consulta solo viajes finalizados propios, ordenados y con límite 50', async () => {
   const { getDriverTripHistory, calls } = serviceWithDocs([
-    { id: 'old', status: 'completed', completedAt: { seconds: 100 } },
-    { id: 'cancel', status: 'cancelled', cancelledAt: { seconds: 300 } },
-    { id: 'new', status: 'completed', completedAt: { seconds: 200 } },
+    { id: 'new', status: 'completed', createdAt: { seconds: 300 } },
+    { id: 'cancel', status: 'cancelled', createdAt: { seconds: 200 } },
+    { id: 'old', status: 'completed', createdAt: { seconds: 100 } },
   ]);
 
   const history = await getDriverTripHistory('driver-1');
 
-  assert.deepEqual(history.map((trip) => trip.id), ['cancel', 'new', 'old']);
+  assert.deepEqual(history.map((trip) => trip.id), ['new', 'cancel', 'old']);
   assert.deepEqual(calls.filter(x => x[0] === 'where'), [
     ['where', 'driverId', '==', 'driver-1'],
     // AI-assisted: see docs/AI_LOG.md #29
     ['where', 'status', 'in', ['completed', 'paid', 'cancelled']],
   ]);
+  assert.deepEqual(calls.filter(x => x[0] === 'orderBy'), [['orderBy', 'createdAt', 'desc']]);
   assert.ok(calls.some(x => x[0] === 'limit' && x[1] === 50));
 });
 

@@ -330,6 +330,121 @@ test('Reglas de cobros en efectivo y saldo del conductor', async (t) => {
         getAggregateFromServer(entries(environment.unauthenticatedContext().firestore()), aggregates)
       );
     });
+
+    // AI-assisted: see docs/AI_LOG.md #37
+    // Mercado Pago: solo el backend (Admin SDK) confirma pagos y registra la
+    // ganancia; firestore.rules no cambia y el conductor no puede
+    // falsificarlos.
+
+    function gatewayEntry(tripId, trip) {
+      return {
+        type: 'gateway_earning',
+        tripId,
+        status: 'pending',
+        currency: 'COP',
+        paymentMethod: 'mercadopago',
+        paymentId: '123',
+        fare: trip.fare,
+        tip: trip.tip,
+        cashAmount: 0,
+        commission: trip.commission,
+        commissionRate: trip.commissionRate,
+        driverEarnings: trip.driverEarnings,
+        amount: trip.driverEarnings,
+        createdAt: serverTimestamp(),
+      };
+    }
+
+    await t.test('Mercado Pago: el conductor no puede aprobar, marcar pendiente ni registrar el pago', async () => {
+      await seedTrip('trip-mp-tamper', { paymentMethod: 'mercadopago' });
+      const ref = doc(dbAs(DRIVER), 'trips', 'trip-mp-tamper');
+
+      for (const change of [
+        { status: 'paid', paymentStatus: 'approved', paymentId: '1', paidAt: serverTimestamp() },
+        { status: 'paid', paymentStatus: 'cash', paidAt: serverTimestamp() },
+        { paymentStatus: 'approved' },
+        { paymentStatus: 'pending', paymentId: '1' },
+        { paymentId: '1' },
+        { paymentCheckoutUrl: 'https://evil.test' },
+        { paymentPreferenceAmount: 1 },
+      ]) {
+        await assertFails(updateDoc(ref, change));
+      }
+    });
+
+    await t.test('Mercado Pago: el conductor no puede crear ni alterar su ganancia de la pasarela', async () => {
+      const trip = await seedTrip('trip-mp-ledger', { paymentMethod: 'mercadopago' });
+      const db = dbAs(DRIVER);
+      const ownRef = doc(db, 'drivers', DRIVER, 'ledgerEntries', 'mp_trip-mp-ledger');
+
+      await assertFails(setDoc(ownRef, gatewayEntry('trip-mp-ledger', trip)));
+
+      // Asiento creado por el backend: el conductor lo lee pero no lo cambia.
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'drivers', DRIVER, 'ledgerEntries', 'mp_trip-mp-ledger'),
+          { ...gatewayEntry('trip-mp-ledger', trip), createdAt: new Date() }
+        );
+      });
+      await assertSucceeds(getDoc(ownRef));
+      await assertFails(updateDoc(ownRef, { driverEarnings: 999999, amount: 999999 }));
+      await assertFails(updateDoc(ownRef, { status: 'settled' }));
+      await assertFails(deleteDoc(ownRef));
+      await assertFails(getDoc(doc(dbAs(OTHER), 'drivers', DRIVER, 'ledgerEntries', 'mp_trip-mp-ledger')));
+    });
+
+    await t.test('Mercado Pago: el conductor ve en tiempo real sus cobros pendientes y el resultado', async () => {
+      await seedTrip('trip-mp-pending', { paymentMethod: 'mercadopago' });
+      const gatewayQuery = (db, driverId) => query(
+        collection(db, 'trips'),
+        where('driverId', '==', driverId),
+        where('status', '==', 'completed'),
+        where('paymentMethod', '==', 'mercadopago'),
+        limit(50)
+      );
+
+      const snapshot = await assertSucceeds(getDocs(gatewayQuery(dbAs(DRIVER), DRIVER)));
+      assert.ok(snapshot.docs.some((item) => item.id === 'trip-mp-pending'));
+      await assertFails(getDocs(gatewayQuery(dbAs(OTHER), DRIVER)));
+
+      // El backend aprueba el pago: el conductor lee el viaje pagado.
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await updateDoc(doc(context.firestore(), 'trips', 'trip-mp-pending'), {
+          status: 'paid',
+          paymentStatus: 'approved',
+          paymentId: '555',
+          paidAt: new Date(),
+        });
+      });
+      const paid = await assertSucceeds(getDoc(doc(dbAs(DRIVER), 'trips', 'trip-mp-pending')));
+      assert.equal(paid.data().paymentStatus, 'approved');
+      // Un viaje pagado es inmutable para el conductor.
+      await assertFails(updateDoc(doc(dbAs(DRIVER), 'trips', 'trip-mp-pending'), { paymentStatus: 'rejected' }));
+    });
+
+    await t.test('Mercado Pago: la auditoría de pagos es solo del backend', async () => {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), 'paymentEvents', '555_approved'), { tripId: 'trip-mp-pending' });
+      });
+
+      for (const db of [dbAs(DRIVER), environment.unauthenticatedContext().firestore()]) {
+        await assertFails(getDoc(doc(db, 'paymentEvents', '555_approved')));
+        await assertFails(getDocs(collection(db, 'paymentEvents')));
+        await assertFails(setDoc(doc(db, 'paymentEvents', 'fake'), { tripId: 'x' }));
+      }
+    });
+
+    await t.test('Mercado Pago: totales de la pasarela solo para el propio conductor', async () => {
+      const gatewayTotals = (db) => getAggregateFromServer(
+        query(collection(db, 'drivers', DRIVER, 'ledgerEntries'), where('type', '==', 'gateway_earning')),
+        { n: count(), cash: sum('cashAmount'), commission: sum('commission'), earnings: sum('driverEarnings') }
+      );
+
+      const own = await assertSucceeds(gatewayTotals(dbAs(DRIVER)));
+      assert.ok(own.data().n >= 1);
+      assert.equal(own.data().cash, 0);
+      await assertFails(gatewayTotals(dbAs(OTHER)));
+    });
   } finally {
     await environment.cleanup();
   }

@@ -17,6 +17,14 @@ import {
 } from './src/services/authService';
 import { getDriverRegistration } from './src/services/firestoreService';
 import { hasSavedRegistration } from './src/utils/driverRegistration';
+// AI-assisted: see docs/AI_LOG.md #38
+import DemoModeBanner from './src/components/DemoModeBanner';
+// AI-assisted: see docs/AI_LOG.md #39
+import {
+  initialWindowMetrics,
+  SafeAreaProvider,
+} from 'react-native-safe-area-context';
+import { PAYMENTS_DEMO } from './src/config/paymentsDemo';
 
 export default function App() {
   const [driverUid, setDriverUid] = useState(null);
@@ -52,11 +60,11 @@ export default function App() {
     return () => { active = false; };
   }, [driverUid]);
 
-  return (
+  const app = (
     <NavigationContainer>
       <StatusBar style="dark" />
       <DriverProvider key={driverUid || 'guest'} uid={driverUid}>
-        <AppNavigator 
+        <AppNavigator
           driverUid={driverUid}
           screen={screen}
           onEditRegistration={() => setScreen('registration')}
@@ -66,5 +74,23 @@ export default function App() {
         />
       </DriverProvider>
     </NavigationContainer>
+  );
+
+  // AI-assisted: see docs/AI_LOG.md #38
+  // AI-assisted: see docs/AI_LOG.md #39
+  // Sin MODO DEMOSTRACIÓN la app se renderiza igual que siempre. Con el
+  // modo, el SafeAreaProvider raíz da al aviso el margen superior del
+  // dispositivo, y la navegación va en un SafeAreaProvider anidado debajo
+  // del aviso: sus márgenes se miden desde ahí, así no se duplica el margen
+  // superior y el aviso no tapa la hora ni la batería.
+  if (!PAYMENTS_DEMO.enabled) {
+    return app;
+  }
+
+  return (
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <DemoModeBanner />
+      <SafeAreaProvider>{app}</SafeAreaProvider>
+    </SafeAreaProvider>
   );
 }

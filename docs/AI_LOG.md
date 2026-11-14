@@ -1826,12 +1826,654 @@ Quiero que trabajes de manera autónoma en el diagnóstico y las pruebas locales
   - En la consulta posterior con `--estado` y `--credencial-firebase-cli`, los seis documentos existen con `status: pending`, sin `driverId` asignado y con `createdAt` válido.
   - Los viajes anteriores no se modificaron.
 
+### Entrada #35
+
+- **Fecha:** 2026-11-14
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Diagnosticar, en solo lectura, por qué la pestaña Viajes mostraba «Sin solicitudes por ahora» después de crear viajes de prueba en Firestore real.
+- **Prompt (texto literal):**
+
+````text
+Claude, necesito un diagnóstico técnico de solo lectura sobre un problema en UberClone Driver.
+
+**Situación confirmada:**
+- Proyecto Firebase real: `uberclone-driver-8e0bf`.
+- El conductor está aprobado, en línea y con la pantalla Viajes abierta.
+- El script `scripts/dev/seedTestTripRequests.cjs` creó correctamente seis viajes del lote `20261114`.
+- Después creé un viaje individual:
+  - ID: `prueba_prueba-viaje-01_1_economy`
+  - Categoría: `economy`
+  - Estado inicial: `pending`
+  - `driverId: null`
+  - `createdAt: 2026-11-14T05:48:34.671Z`
+- La aplicación continuó mostrando «No hay solicitudes por ahora».
+- El script confirmó la escritura real sin errores.
+
+**Tu tarea:**
+
+1. Revisa el código real de la suscripción a solicitudes, el hook correspondiente, la pantalla Viajes, los filtros de elegibilidad y las reglas de Firestore.
+2. Comprueba cómo funciona el contador de 15 segundos y si la antigüedad de `createdAt` impide mostrar solicitudes.
+3. Compara exactamente la estructura del viaje generado con los campos que espera la aplicación.
+4. Revisa si el conductor aprobado y conectado cumple los filtros de categoría, disponibilidad y asignación.
+5. Determina si el problema está en la consulta, el filtrado, el listener, las reglas, la caducidad de la oferta o la interfaz.
+6. Ejecuta únicamente pruebas locales o consultas de solo lectura cuando sean necesarias.
+7. No modifiques archivos, no crees más viajes reales, no cambies reglas, no hagas commits ni despliegues.
+
+**Entrega esperada:** diagnóstico con archivos y líneas concretas, causa confirmada o hipótesis claramente identificadas y la corrección mínima recomendada. No implementes cambios todavía.
+
+Quiero que distingas entre «el viaje no llegó al listener» y «el viaje llegó, pero fue descartado por algún filtro».
+````
+
+- **Resumen de la respuesta:**
+  - **El viaje llegó al listener.** La app creó la oferta `drivers/{uid}/tripOffers/prueba_prueba-viaje-01_1_economy` a las 05:49:32.261, 57,6 s después de `createdAt`, y la app solo crea ofertas para viajes recibidos de la suscripción.
+  - **La oferta venció y la solicitud se ocultó.** Se rechazó automáticamente por vencimiento a las 05:49:48.967, 16,7 s después. Desde entonces el filtro de ofertas rechazadas la oculta para ese conductor, como está diseñado. Los otros viajes pendientes también tenían su oferta vencida; uno del lote se aceptó y completó.
+  - **Causas descartadas:** la consulta, las reglas, la estructura del documento, la elegibilidad del conductor, la categoría y la antigüedad de `createdAt`. También el reloj del dispositivo: un retraso de 16,7 s corresponde a 15 s más el segundo de margen.
+  - **Hipótesis principal del retraso de 57,6 s:** la app no estaba en primer plano.
+- **Qué se usó / modificó / descartó:** consultas de solo lectura al proyecto real con la sesión de Firebase CLI, con máscaras de campos y sin datos personales, y reproducción local del filtro de la app con los datos reales. No se modificó código ni datos.
+- **Archivos modificados:** ninguno en la consulta. Esta entrada se registró después, junto con la entrada #37.
+- **Commit:** `c69bf0e` (documentación). Esta entrada no tuvo cambios de código.
+- **Verificación:** consultas de solo lectura (`runQuery` de la consulta del listener y de las ofertas del conductor) y reproducción de `selectVisibleTripRequests` en cuatro momentos de la cronología.
+- **Aprendizaje:** La oferta que la app guarda para cada solicitud recibida permite distinguir «no llegó al listener» de «llegó y se descartó» sin acceder al dispositivo.
+
+### Entrada #36
+
+- **Fecha:** 2026-11-14
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Auditar en solo lectura el estado de los pagos y diseñar la integración de Mercado Pago Checkout Pro según la sección 4 de la guía.
+- **Prompt (texto literal):**
+
+````text
+Claude, revisé la guía oficial «UberClone — Versión Conductor», especialmente la sección 4, «Pasarela de pagos».
+
+La guía establece que es obligatorio integrar una pasarela (Mercado Pago o Stripe) en modo de prueba, con backend, checkout, confirmación y actualización del estado del viaje en Firestore.
+
+Quiero implementar **Mercado Pago Checkout Pro con su API real y credenciales de prueba**, sin procesar dinero real.
+
+Realiza una auditoría de solo lectura del proyecto actual:
+
+1. Revisa los servicios y componentes de pagos existentes.
+2. Determina qué funcionalidades están simuladas y cuáles utilizan una API real.
+3. Analiza la mejor arquitectura para integrar Checkout Pro con Expo SDK 58, React Native, JavaScript y Firebase.
+4. Evalúa si necesitamos Firebase Cloud Functions, su plan de facturación y las alternativas de backend.
+5. Identifica los cambios mínimos necesarios en Firestore, reglas, servicios y pantallas.
+6. Diseña el flujo de creación del pago, checkout, webhook verificado, confirmación y actualización de ganancias.
+7. Conserva íntegramente el flujo de pagos en efectivo y los viajes ya registrados.
+8. Propón fases de implementación, archivos nuevos y modificados, pruebas y requisitos de seguridad.
+9. Revisa cómo documentarlo en `docs/AI_LOG.md`, manteniendo las entradas consecutivas y «Consideraciones generales» al final.
+
+**Restricciones:** no modificar archivos, no instalar dependencias, no crear transacciones, no desplegar, no hacer commits ni push. No solicitar ni exponer credenciales secretas en el chat.
+
+Entrégame primero un diagnóstico y un plan detallado para revisión.
+````
+
+- **Resumen de la respuesta:**
+  - **Diagnóstico:** el cobro en efectivo y el desglose de tarifa eran reales, pero no existía ninguna integración de pagos digitales; `mercadopago` y `stripe` solo eran valores y etiquetas. El saldo no incluía las ganancias cobradas por la pasarela.
+  - **Facturación:** en solo lectura se comprobó que el proyecto no tiene facturación activa (`billingEnabled=false`) y que las APIs de Cloud Functions y Secret Manager están desactivadas. Según la documentación de Firebase, desplegar funciones exige el plan Blaze, aunque el emulador funciona sin él.
+  - **Arquitectura propuesta:** función callable para crear la preferencia, `expo-web-browser` para el checkout, webhook con firma y confirmación con `GET /v1/payments/{id}`, actualización idempotente con Admin SDK y la app escuchando Firestore. Las reglas no se modifican.
+  - **Plan:** cinco fases y las decisiones pendientes del integrante.
+- **Qué se usó / modificó / descartó:** documentación oficial de Mercado Pago (Checkout Pro, notificaciones, cuentas y tarjetas de prueba de Colombia), de Firebase (requisitos de Cloud Functions y del plan Blaze) y de Expo SDK 58 (`expo-web-browser`). Se descartaron los enlaces de retorno a la app en Expo Go y un backend externo con clave de cuenta de servicio.
+- **Archivos modificados:** ninguno en la auditoría. Esta entrada se registró después, junto con la entrada #37.
+- **Commit:** `c69bf0e` (documentación). Esta entrada no tuvo cambios de código.
+- **Verificación:** lectura de la guía, inventario del código con `grep` y consultas de solo lectura de facturación y APIs.
+- **Aprendizaje:** Comprobar el plan de facturación antes de diseñar el backend evita elegir una arquitectura que no se puede desplegar.
+
+### Entrada #37
+
+- **Fecha:** 2026-11-14
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Implementar las fases 1 a 3 de la integración de Mercado Pago Checkout Pro en modo de prueba (backend con Cloud Functions, app y pruebas), sin desplegar ni activar el plan Blaze.
+- **Prompt (texto literal):**
+
+````text
+Claude, confirmo que la entrega definitiva de UberClone Driver es HOY, 14 de noviembre de 2026, a las 8:30 a. m. Tenemos muy poco tiempo.
+
+Autorizo iniciar la implementación de las fases 1 a 3 de Mercado Pago Checkout Pro, siguiendo tu auditoría anterior.
+
+**Objetivo prioritario:** integrar Mercado Pago en modo de prueba sin romper las funcionalidades existentes.
+
+Condiciones:
+
+1. Trabaja en una rama de funcionalidad, nunca directamente sobre `main`.
+2. Implementa el backend con Firebase Functions y pruebas automatizadas, utilizando el emulador cuando sea posible.
+3. Integra el flujo en Expo SDK 58 y Firestore, conservando el pago en efectivo.
+4. Implementa verificaciones de seguridad, idempotencia y confirmación del pago desde la API.
+5. No introduzcas credenciales reales ni secretos en el código.
+6. Ejecuta las pruebas disponibles y reporta cuáles no pudiste ejecutar.
+7. Documenta el uso de IA en `docs/AI_LOG.md`, con entradas consecutivas y «Consideraciones generales» al final.
+8. No hagas commits, push ni despliegues sin mi autorización.
+9. No actives Blaze ni modifiques la facturación.
+
+**Trabaja de manera autónoma en la implementación y las pruebas locales.** Solo detente si necesitas una decisión o acción que no puedas realizar sin mi autorización.
+
+Al finalizar, entrega un resumen de archivos modificados, pruebas realizadas, errores pendientes y pasos exactos para habilitar el pago de prueba real.
+
+Prioriza tener una versión estable y entregable antes que añadir funcionalidades adicionales.
+````
+
+- **Resumen de la respuesta:**
+  - **Rama:** `feat/pasarela-mercadopago`.
+  - **Backend:** nuevo directorio `functions/`, con Node 22, `firebase-functions` 7 y `firebase-admin` 14, y tres funciones:
+    - `createPaymentPreference` (callable): exige sesión y que el conductor sea el del viaje, `completed` y `mercadopago`. Calcula el monto con el desglose guardado (el de la app solo se compara), crea la preferencia con `external_reference = tripId` y la reutiliza mientras está vigente.
+    - `mercadoPagoWebhook`: verifica la firma `x-signature` con HMAC-SHA256 según la plantilla del validador del SDK oficial de Node de Mercado Pago, porque la documentación pública no la publica. Consulta el pago en la API y lo aplica en una transacción idempotente.
+    - `paymentReturn`: página de retorno que también confirma el pago con la API.
+  - **Resultado del pago:**
+    - `approved`: el viaje pasa a `paid`, con `paymentStatus`, `paymentId` y `paidAt`, y se crea el asiento `mp_{tripId}` (`gateway_earning`).
+    - `pending` y `rejected`: solo se actualiza `paymentStatus`.
+    - Un pago aprobado no retrocede y un segundo pago aprobado no se aplica.
+    - La auditoría queda en `paymentEvents`.
+  - **Secretos:** `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` se definen con `defineSecret` (Secret Manager); los parámetros no secretos tienen valores por defecto.
+  - **App:**
+    - Tarjeta «Cobro con Mercado Pago» en la pestaña Viajes, con el checkout en `expo-web-browser` y el resultado en tiempo real.
+    - Saldo = ganancias de la pasarela − comisiones de efectivo pendientes (guía, sección 5). Reutiliza el índice compuesto ya desplegado gracias a que el asiento tiene la misma forma que el del efectivo.
+    - Pantalla Pagos y etiquetas actualizadas.
+  - **Sin cambios:** `firestore.rules` y el flujo del pago en efectivo.
+- **Qué se usó / modificó / descartó:**
+  - **Usado:** la documentación oficial consultada en la entrada #36 y el validador de firma del SDK oficial de Node de Mercado Pago. Para la página de retorno se usa `back_urls` sin enlaces profundos a la app.
+  - **Descartado:**
+    - Stripe, fuera de alcance.
+    - Enlaces profundos de retorno en Expo Go.
+    - La liquidación de las ganancias al conductor.
+    - Modificar `firestore.rules`: no es necesario, porque las rutas sin regla están denegadas y el conductor no puede escribir pagos digitales.
+- **Archivos modificados:**
+  - **Backend:** `functions/` (`index.js`, `src/paymentLogic.js`, `src/signature.js`, `src/mercadoPagoClient.js`, `src/handlers.js`, `test/`, `package.json`, `package-lock.json`, `.env.example`, `.gitignore`).
+  - **App, archivos nuevos:** `src/utils/gatewayPaymentLogic.js`, `src/services/gatewayPaymentService.js`, `src/hooks/useGatewayPayments.js`, `src/components/payments/PendingGatewayPayments.js`.
+  - **App, archivos modificados:** `src/config/firebase.js`, `src/components/trips/TripRequests.js`, `src/screens/home/PaymentSummaryScreen.js`, `src/services/cashPaymentService.js`, `src/utils/cashPaymentLogic.js`.
+  - **Pruebas:** `tests/gatewayPayment.test.cjs`, `tests/gatewayPayment.integration.test.cjs`, `tests/payments.rules.test.cjs`, `tests/cashPayment.test.cjs`, `tests/pagination.test.cjs`.
+  - **Configuración y documentación:** `firebase.json`, `package.json`, `package-lock.json` (`expo-web-browser` ~58.0.8, instalado con `npx expo install`), `README.md` y `docs/AI_LOG.md`.
+- **Commit:** `202ac3e` (backend), `66c2d4c` (app y pruebas) y `c69bf0e` (README y bitácora). Los cambios de las entradas #37 a #39 se confirmaron juntos en esos commits, agrupados por archivos.
+- **Verificación:**
+  - **Suites:**
+    - `npm run test:unit`: 146/146.
+    - `npm run test:integration`: 41/41, incluido el flujo de extremo a extremo: la app completa el viaje con las reglas, el backend real con Admin SDK aprueba el pago con la API simulada, y la app ve el viaje pagado y el saldo.
+    - `npm run test:rules`: 156/156, 0 omitidas, sin avisos «maximum of 1000 expressions».
+    - `npm run test:functions`: 10/10 de lógica y firma, y 10/10 de manejadores contra el emulador, con concurrencia, idempotencia, desajustes de monto, firma y retorno.
+  - **Emulador de Functions de Firebase CLI:** cargó las tres funciones con secretos ficticios temporales, borrados al terminar. `paymentReturn` respondió 200, el webhook rechazó GET con 405 y la callable sin sesión respondió 401.
+  - **Expo:** `npx expo-doctor` 20/20 y `npx expo export --platform ios` con 1006 módulos.
+  - **Bundle de la app:** no contiene los nombres de los secretos ni llamadas a `api.mercadopago.com`.
+  - **No ejecutado:** el despliegue, la prueba con la API real de Mercado Pago y la prueba en Expo Go, porque requieren el plan Blaze y las credenciales de prueba.
+- **Limitaciones:**
+  - El despliegue requiere activar Blaze, cargar los secretos y configurar el webhook en el panel de Mercado Pago.
+  - Falta confirmar con la API real qué campo de checkout usar con credenciales de prueba (`init_point`, el valor por defecto, o `sandbox_init_point`) y la plantilla de la firma; se puede cambiar a `MP_WEBHOOK_SIGNATURE_MODE=report` sin perder seguridad, porque el estado siempre se confirma con la API.
+  - Stripe no está integrado, y los reembolsos y contracargos se registran pero no se aplican.
+- **Aprendizaje:** Si el estado del pago se toma siempre de la API de la pasarela y no de la notificación, el webhook queda protegido aunque la firma falle. Inyectar Firestore y el cliente de la pasarela en los manejadores permitió probar el backend real contra el emulador sin credenciales.
+
+### Entrada #38
+
+- **Fecha:** 2026-11-14
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Poder presentar el cobro digital completo desde Expo Go sin credenciales de Mercado Pago ni plan Blaze, con un modo de demostración local, claramente identificado y aislado del entorno real.
+- **Prompts (texto literal):**
+
+Primer prompt (diagnóstico):
+
+````text
+Claude, antes de cerrar el proyecto necesito aclarar algo.
+
+Como no conseguimos las credenciales de Mercado Pago, quiero saber si podemos aprovechar la API simulada que ya utilizaste en las pruebas para demostrar un pago digital completo durante la presentación.
+
+Haz primero un diagnóstico breve:
+
+1. ¿La API simulada funciona únicamente dentro de las pruebas automatizadas o también podemos utilizarla desde la aplicación Expo Go?
+2. ¿Podemos demostrar desde la interfaz un viaje con Mercado Pago, abrir un checkout simulado, aprobar el pago y observar cómo Firestore actualiza el viaje y las ganancias?
+3. ¿Cuánto trabajo adicional necesitaríamos para conseguirlo?
+4. ¿Podemos hacerlo sin Blaze, sin credenciales de Mercado Pago y sin afectar el flujo de efectivo?
+5. ¿Cómo impedirías que el modo de demostración se utilice accidentalmente en producción?
+
+No modifiques archivos todavía. No hagas commits ni despliegues.
+
+Necesito una respuesta concreta y una estimación de tiempo, porque la entrega es hoy a las 8:30 a. m . chaygpt tambien dice que  el quiere mantener esta condicion ; Y hay una condición que quiero mantener: la simulación debe estar claramente identificada como modo de demostración, nunca como un pago auténtico de Mercado Pago.
+````
+
+Segundo prompt (autorización):
+
+````text
+Claude, autorizo el PLAN A con la salida de emergencia del PLAN B.
+
+La entrega es hoy, 14 de noviembre, a las 8:30 a. m. Necesitamos una versión estable y lista para presentar.
+
+Condiciones:
+
+1. Empieza exclusivamente por la comprobación de conectividad entre Expo Go, Firebase Auth y los emuladores locales. Si no funciona en un máximo de 15–20 minutos, detente e infórmame antes de continuar.
+2. Si funciona, implementa el modo demostración desde Expo Go, siguiendo tu arquitectura y las protecciones que propusiste.
+3. Mantén completamente separado el modo demostración del entorno real. Nunca permitas que una simulación escriba pagos aprobados en Firestore de producción.
+4. Identifica claramente todas las pantallas y pagos simulados con «MODO DEMOSTRACIÓN».
+5. No modifiques el flujo de pagos en efectivo ni las funcionalidades estables.
+6. Ejecuta las pruebas automatizadas y verifica que el modo demostración esté deshabilitado fuera de los emuladores.
+7. Actualiza README y docs/AI_LOG.md con los cambios realizados y las limitaciones reales.
+8. No actives Blaze, no despliegues funciones, no utilices credenciales reales y no hagas commits ni push.
+9. Si el Plan A no funciona o se vuelve demasiado complejo, detente y proponme ejecutar el Plan B. No cambies de estrategia silenciosamente.
+
+Cuando termines, necesito los comandos exactos para iniciar la demostración desde mi Mac y abrirla en Expo Go.
+
+Prioriza seguridad, estabilidad y facilidad de presentación. No agregues funcionalidades ajenas al modo demostración.
+````
+
+- **Resumen de la respuesta:**
+  - **Diagnóstico:** la API simulada solo existía dentro de las pruebas. Para usarla desde Expo Go hacían falta los emuladores locales y un modo de demostración (plan A, unas 3 h), con un plan B por terminal como salida de emergencia.
+  - **Comprobación de conectividad (plan A, en 1 minuto):**
+    - IP local `192.168.1.5`, firewall de macOS desactivado y Metro accesible en la red.
+    - Firebase CLI 15.36 ejecuta las funciones del emulador con `skipTokenVerification`.
+    - Desde la IP local: Firestore aplicó las reglas con el uid de un token con la forma de Firebase Auth (200 en el documento propio, 403 en el ajeno), y la callable aceptó la sesión (404 «El viaje no existe») y rechazó la ausencia de token (401).
+  - **Backend (`functions/src/demoMode.js`):**
+    - Un cliente con la misma interfaz que el de Mercado Pago guarda las preferencias y los pagos de demostración en el emulador (`demoPreferences` y `demoPayments`).
+    - `demoCheckout` es una página identificada como «MODO DEMOSTRACIÓN — no es Mercado Pago», con los botones Aprobar, Pendiente y Rechazar.
+    - `processPayment` aplica el resultado con las mismas validaciones y la misma idempotencia, y marca el viaje, el asiento y la auditoría con `paymentMode: "demo"` e IDs `DEMO-`.
+    - Protecciones: `PAYMENTS_DEMO_MODE=true` solo se acepta con `FUNCTIONS_EMULATOR=true` y `FIRESTORE_EMULATOR_HOST`. En cualquier otro entorno, `index.js` no carga y un despliegue fallaría. En modo demostración no se exportan el webhook ni el retorno reales, no se declaran secretos, y el webhook real no acepta IDs `DEMO-`.
+  - **App:**
+    - `src/config/paymentsDemo.js` activa el modo solo con `__DEV__`, `EXPO_PUBLIC_PAYMENTS_DEMO=true` y una IP privada o `localhost`.
+    - `src/config/firebase.js` conecta Firestore y Functions a los emuladores; la autenticación anónima sigue siendo la real.
+    - Aviso fijo `DemoModeBanner` y etiquetas «MODO DEMOSTRACIÓN» en la tarjeta de cobro, el resultado, el historial y la pantalla Pagos.
+    - El checkout `http://` solo se acepta para el emulador configurado.
+  - **Herramienta:**
+    - `scripts/dev/paymentDemo.cjs`, con los comandos `emuladores`, `preparar`, `solicitud` y `app` y sus atajos `npm run demo:*`.
+    - `firebase.demo.json` define los puertos 8181 y 5002 en la red local, separados del emulador de pruebas.
+    - El modo del backend se activa con `functions/.env.local` (solo lo leen los emuladores; excluido de Git), que el script borra al terminar.
+- **Qué se usó / modificó / descartó:**
+  - **Hallazgo durante la implementación:** el emulador de Functions no pasa las variables de la terminal a la fase en que descubre las funciones, pero sí a su ejecución. Por eso se usó `.env.local`, que se aplica en ambas fases.
+  - **Corrección durante la prueba:** el lanzador ahora reenvía Ctrl+C y SIGTERM a los emuladores y espera a que terminen.
+  - **Descartado:** escribir pagos simulados en el Firestore real, imitar la marca de Mercado Pago y el plan B, porque el plan A funcionó.
+  - **Sin cambios:** `firestore.rules`, el flujo de efectivo y el comportamiento sin el modo demostración.
+- **Archivos modificados:**
+  - **Backend:** `functions/src/demoMode.js` (nuevo), `functions/src/handlers.js`, `functions/index.js`, `functions/test/demoMode.test.cjs` (nuevo), `functions/test/handlers.emulator.test.cjs`, `functions/package.json`.
+  - **App:** `src/config/paymentsDemo.js` (nuevo), `src/components/DemoModeBanner.js` (nuevo), `App.js`, `src/config/firebase.js`, `src/services/gatewayPaymentService.js`, `src/utils/gatewayPaymentLogic.js`, `src/utils/cashPaymentLogic.js`, `src/components/payments/PendingGatewayPayments.js`, `src/screens/home/PaymentSummaryScreen.js`.
+  - **Herramienta y configuración:** `scripts/dev/paymentDemo.cjs` (nuevo), `firebase.demo.json` (nuevo), `package.json`.
+  - **Pruebas y documentación:** `tests/gatewayPayment.test.cjs`, `README.md`, `docs/AI_LOG.md`.
+- **Commit:** `202ac3e` (backend), `66c2d4c` (app, script y pruebas) y `c69bf0e` (README y bitácora), compartidos con las entradas #37 y #39.
+- **Verificación:**
+  - **Suites:**
+    - `npm run test:unit`: 149/149.
+    - `npm run test:integration`: 41/41.
+    - `npm run test:rules`: 156/156, sin avisos «maximum of 1000 expressions».
+    - `npm run test:functions`: 13/13 unitarias y 12/12 contra el emulador.
+  - **Protecciones del modo:** sin el modo, `index.js` exporta las funciones reales; con el modo pedido fuera del emulador, la carga falla; en el emulador, solo `createPaymentPreference` y `demoCheckout`.
+  - **Prueba de extremo a extremo con `npm run demo:emuladores`, por la IP local:**
+    1. `preparar` y `solicitud` crearon los datos.
+    2. La consulta real de la app, con reglas, mostró el cobro pendiente.
+    3. La callable, con la sesión del conductor, devolvió el checkout de demostración.
+    4. La página se identificó como «MODO DEMOSTRACIÓN».
+    5. La aprobación pasó el viaje a `paid` con `paymentMode: "demo"` e ID `DEMO-`, y la app lo vio en tiempo real.
+    6. El saldo, calculado con reglas, incluyó la ganancia.
+  - **Cierre:** al detener los emuladores con SIGTERM, el puerto quedó libre y `.env.local` se borró.
+  - **Expo:** `npx expo-doctor` 20/20. `npx expo export --platform ios` en producción (1008 módulos, sin nombres de secretos) y en desarrollo con las variables de demostración (1127 módulos).
+  - **Sin ejecutar:** la prueba en el móvil con Expo Go. El tramo del móvil a la IP del Mac no se pudo comprobar desde el equipo; se confirma al abrir la demostración.
+- **Limitaciones:**
+  - La demostración necesita el Mac y el móvil en la misma red Wi-Fi y los tres procesos en marcha.
+  - Los datos viven solo en el emulador y se borran al detenerlo. El perfil del conductor es de demostración y se crea con `preparar`, usando el UID que muestra Metro.
+  - No demuestra la integración con la API real de Mercado Pago, que sigue pendiente de Blaze y credenciales (entrada #37).
+- **Aprendizaje:** Una simulación es aceptable en una presentación si queda aislada por diseño (solo emuladores, protecciones al cargar, sin despliegue posible) y se identifica en cada pantalla y en cada dato. Comprobar la conectividad antes de construir evitó invertir horas en un plan que podía no funcionar en el móvil.
+
+### Entrada #39
+
+- **Fecha:** 2026-11-14
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Corregir dos problemas visuales detectados en un iPhone real con Expo Go: importes cortados en el historial de ganancias y el aviso «MODO DEMOSTRACIÓN» encima de la barra de estado.
+- **Prompt (texto literal):**
+
+````text
+Claude, estamos realizando las pruebas finales de UberClone Driver en un iPhone real mediante Expo Go.
+
+**El flujo de solicitudes, viajes y pago simulado funciona correctamente**, pero detecté dos problemas visuales que necesito corregir.
+
+### 1. Historial de ganancias: importe cortado
+
+En la pantalla de historial de ganancias, un valor positivo en verde, por ejemplo **$26.640**, aparece demasiado desplazado hacia la derecha y se corta, mostrando algo como `26.6...`.
+
+Necesito que:
+- Localices el componente exacto que renderiza los importes del historial.
+- Corrijas la distribución horizontal para que los importes se vean completos.
+- Mantengas la alineación, los colores y la jerarquía visual.
+- Permitas que el texto descriptivo ocupe menos espacio o se distribuya en varias líneas si es necesario.
+- Evites desbordamientos en pantallas pequeñas y con importes mayores.
+- No cambies el cálculo de tarifas, comisiones ni ganancias.
+
+### 2. Safe Area del modo demostración
+
+El aviso naranja «MODO DEMOSTRACIÓN» aparece encima de la hora y la batería del iPhone.
+
+Corrige su posición para respetar el Safe Area superior de iOS y Android, sin tapar los elementos del sistema ni perjudicar la navegación.
+
+### Restricciones
+
+- Realiza cambios mínimos y localizados.
+- No alteres Firebase, los emuladores, la lógica de pagos ni los viajes.
+- No hagas commits ni push.
+- No modifiques archivos `.env`.
+- Ejecuta las verificaciones pertinentes.
+- Si utilizas IA para modificar código, actualiza `docs/AI_LOG.md` con una entrada consecutiva, antes de `### Consideraciones generales`, y los comentarios de referencia correspondientes.
+- Al terminar, indícame los archivos modificados, las verificaciones ejecutadas y cualquier limitación de pruebas visuales en un dispositivo real.
+
+No necesito un rediseño completo, sino dos correcciones visuales profesionales y seguras.
+````
+
+- **Resumen de la respuesta:**
+  - **Importe cortado:** la fila de cada viaje en `EarningsScreen.js` tiene dos columnas, una de texto y otra con el importe en verde. La columna de texto no tenía `flex: 1`, y la etiqueta larga «Pago aprobado (MODO DEMOSTRACIÓN)», añadida en la entrada #38, la ensanchaba hasta encoger y cortar el importe.
+    - Ahora la columna de texto ocupa el espacio libre (`flex: 1`, `minWidth: 0`) y se ajusta en varias líneas; la dirección conserva una sola línea con puntos suspensivos y pierde el ancho fijo de 180.
+    - La columna del importe no se encoge (`flexShrink: 0`, `maxWidth: '55%'`, alineada a la derecha).
+    - Se aplicó la misma corrección a «Movimientos del saldo» de `PaymentSummaryScreen.js`, que tenía el mismo patrón.
+  - **Aviso de demostración:** el aviso usaba el `SafeAreaView` de la librería sin un `SafeAreaProvider`, y en el iPhone no aplicó el margen superior.
+    - Ahora, solo en MODO DEMOSTRACIÓN, `App.js` envuelve la app en un `SafeAreaProvider` raíz, con `initialWindowMetrics`, y el aviso toma el margen de `useSafeAreaInsets`.
+    - La navegación va en un `SafeAreaProvider` anidado debajo del aviso, que mide sus márgenes desde su posición: no se duplica el margen superior y la navegación conserva el comportamiento de siempre.
+    - Sin el modo demostración, `App.js` renderiza exactamente lo mismo que antes.
+- **Qué se usó / modificó / descartó:** se usó `react-native-safe-area-context` 5.11.1, ya instalado; se revisó en su código que el proveedor anidado parte de los márgenes del padre y que ambos ocupan el espacio con `flex: 1`. Se descartaron un margen superior fijo y un `SafeAreaProvider` raíz también fuera del modo demostración, para no cambiar la app estable. No se modificaron cálculos, Firebase, emuladores, pagos ni viajes.
+- **Archivos modificados:** `src/screens/home/EarningsScreen.js`, `src/screens/home/PaymentSummaryScreen.js`, `src/components/DemoModeBanner.js`, `App.js` y `docs/AI_LOG.md`.
+- **Commit:** `66c2d4c` (Pagos, aviso de demostración y `App.js`, junto con la entrada #38), `7f19f73` (Ganancias) y `c69bf0e` (bitácora).
+- **Verificación:**
+  - **Suites:** `npm run test:unit` 149/149 y `npm run test:integration` 41/41, sin cambios de comportamiento.
+  - **Expo:** `npx expo-doctor` 20/20. `npx expo export` genera los bundles de iOS en producción (1008 módulos), de iOS en desarrollo con las variables del MODO DEMOSTRACIÓN (1127 módulos) y de Android (1012 módulos).
+  - **Repositorio:** `git diff --check` sin errores.
+- **Limitaciones:** no se pudo comprobar la presentación visual en un dispositivo desde el equipo de desarrollo, porque no hay pruebas de renderizado en el proyecto. El integrante debe confirmarla en el iPhone: el importe completo con la etiqueta larga y el aviso debajo de la hora y la batería. La prueba en Android también queda pendiente.
+- **Aprendizaje:** En una fila de dos columnas, la columna de texto debe ser la que cede espacio (`flex: 1`, `minWidth: 0`) y la del importe no debe encogerse; si no, un texto más largo empuja y corta el dato principal. En React Native, el margen seguro de un elemento fijo superior debe salir de un `SafeAreaProvider`, y el contenido situado debajo necesita su propio proveedor para no duplicar el margen.
+
+### Entrada #40
+
+- **Fecha:** 2026-11-14
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Completar el historial de carreras según la sección 6 de la guía (filtros, ordenación y paginación correctas, detalle y mapa), ejecutar todas las verificaciones, documentar el cierre y preparar commits locales sin push ni despliegues.
+- **Prompt (texto literal):**
+
+````text
+**IMPORTANTE — ESTADO INICIAL VERIFICADO**
+Antes de modificar archivos, ejecuta git status --short --branch y revisa los cambios preexistentes. No descartes ni sobrescribas trabajo anterior. Como esta rama contiene funcionalidades ya probadas, conserva todo su contenido. Si creas commits, verifica previamente que no incluyan credenciales ni archivos .env.
+Estoy en la rama `feat/pasarela-mercadopago` y tengo cambios sin confirmar correspondientes a la implementación de Mercado Pago, el modo demostración, las correcciones visuales, Firebase Functions, pruebas y documentación.
+
+Todos esos cambios deben conservarse.
+
+Antes de trabajar:
+
+1. Inspecciona `git status` y los archivos modificados.
+2. No descartes ni sobrescribas cambios preexistentes.
+3. Revisa que `functions/`, los archivos nuevos y los archivos de configuración no contengan secretos.
+4. Verifica que `.env`, credenciales y `node_modules` estén excluidos de los commits.
+5. Conserva la funcionalidad del modo demostración y las correcciones visuales ya probadas.
+
+Puedes crear commits locales organizados una vez que las verificaciones correspondientes pasen, pero NO puedes hacer push, fusionar ramas ni desplegar Firebase.
+
+A continuación, ejecuta el plan completo de cierre del proyecto que te proporcionaré.
+
+Claude, te autorizo a realizar la **fase final de desarrollo y preparación de entrega de UberClone Driver**.
+
+Tengo muy poco tiempo para presentar el proyecto y necesito que trabajes de forma autónoma hasta completar los requisitos pendientes del historial, ejecutar las verificaciones y preparar la documentación.
+
+La prioridad es entregar una aplicación funcional, estable y lo más alineada posible con la guía académica.
+
+## CONTEXTO
+
+Proyecto: UberClone Driver.
+
+Tecnologías: React Native, Expo SDK 58, JavaScript, Firebase Authentication, Firestore, Firebase Functions, Cloudinary y emuladores Firebase.
+
+Rama actual: `feat/pasarela-mercadopago`.
+
+La aplicación ya fue probada en un iPhone real. Funcionan el registro, disponibilidad, solicitudes, aceptación, viaje, finalización y pagos simulados.
+
+Las correcciones visuales de Safe Area e importes ya fueron verificadas satisfactoriamente.
+
+El modo demostración debe permanecer aislado de Firebase real.
+
+**IMPORTANTE:** No debes convertir el checkout simulado en una supuesta integración real de Mercado Pago. Documenta esa limitación claramente.
+
+## FASE 1 — HISTORIAL COMPLETO SEGÚN EL APARTADO 6
+
+Implementa el historial de carreras de forma profesional y funcional.
+
+### 1. Listado de viajes
+
+Utiliza `FlatList` y muestra:
+
+- Fecha y hora.
+- Origen y destino.
+- Categoría del vehículo.
+- Tarifa total.
+- Ganancia neta del conductor.
+- Estado del viaje.
+- Método y estado del pago.
+
+Los importes deben mostrarse completos en pantallas pequeñas.
+
+### 2. Filtros
+
+Implementa:
+
+- Hoy.
+- Semana.
+- Mes.
+- Rango personalizado de fechas.
+- Método de pago.
+
+Los filtros deben combinarse correctamente.
+
+Reutiliza el DateTimePicker ya instalado.
+
+Incluye pruebas de límites de fechas, combinaciones de filtros y resultados vacíos.
+
+### 3. Ordenación y paginación
+
+Corrige el problema detectado en `getDriverTripHistory`.
+
+Actualmente se consultan hasta 50 documentos sin ordenación de Firestore y después se ordenan en JavaScript, lo que puede excluir viajes recientes.
+
+Implementa una estrategia correcta y estable:
+
+- Orden descendente por fecha.
+- Paginación o carga incremental.
+- Consultas eficientes.
+- Compatibilidad con viajes existentes.
+- Prevención de duplicados.
+- Manejo de errores.
+- Revisión de índices y reglas de Firestore.
+
+Si hacen falta índices, prepara los archivos de configuración correspondientes, pero NO los despliegues.
+
+No debilites las reglas de seguridad.
+
+### 4. Detalle individual del viaje
+
+Al tocar un viaje, debe abrirse una vista de detalle con:
+
+- Fecha y hora.
+- Origen y destino.
+- Categoría.
+- Distancia.
+- Duración.
+- Tarifa.
+- Comisión del 20 % aplicada.
+- Propina.
+- Ganancia neta.
+- Método y estado del pago.
+- Calificación del pasajero, si existe.
+
+Si no existe una calificación real, mostrar «Sin calificación».
+
+No inventar datos.
+
+### 5. Mapa y ruta del historial
+
+El detalle debe mostrar un mapa con el origen, destino y la ruta correspondiente.
+
+Reutiliza `DriverMap`, `routeService` y la infraestructura de mapas existente siempre que sea técnicamente seguro.
+
+Si el viaje no conserva la geometría de la ruta, calcula una ruta de referencia utilizando las coordenadas disponibles.
+
+No presentes una ruta recalculada como si fuera necesariamente el recorrido histórico exacto.
+
+Si no hay coordenadas o falla el servicio de rutas, muestra un mensaje claro y conserva visible el resto del detalle.
+
+No modifiques la navegación ni la lógica del viaje activo salvo que sea absolutamente indispensable.
+
+### 6. Calidad visual
+
+Mantén el estilo existente.
+
+Respeta el Safe Area de iOS y Android.
+
+Evita textos cortados, desbordamientos, botones inaccesibles y errores de navegación.
+
+No rediseñes toda la aplicación.
+
+## FASE 2 — PRUEBAS Y ESTABILIDAD
+
+Cuando termines la implementación:
+
+1. Ejecuta todas las pruebas unitarias.
+2. Ejecuta las pruebas de integración.
+3. Ejecuta las pruebas de reglas Firestore disponibles.
+4. Ejecuta las pruebas de Functions.
+5. Ejecuta `npx expo-doctor`.
+6. Genera bundles de iOS y Android.
+7. Ejecuta `git diff --check`.
+8. Comprueba imports, dependencias, navegación y errores de sintaxis.
+9. Verifica que las consultas del historial respeten las reglas de seguridad.
+10. Añade pruebas automatizadas para los nuevos filtros, paginación y datos del historial.
+
+Si no puedes ejecutar una prueba por limitaciones del entorno, indícalo expresamente.
+
+No inventes resultados ni afirmes haber probado visualmente un dispositivo físico.
+
+Corrige los problemas encontrados dentro del alcance autorizado.
+
+## FASE 3 — DOCUMENTACIÓN FINAL
+
+Actualiza:
+
+- `README.md`.
+- `docs/AI_LOG.md`.
+- Documentación necesaria para ejecutar el modo demostración.
+- Reporte de cumplimiento de requisitos.
+
+En la bitácora:
+
+- Mantén las entradas `#1` hasta la última en orden cronológico.
+- No dupliques números.
+- Inserta las entradas nuevas antes de `### Consideraciones generales`.
+- Mantén esa sección siempre al final.
+- Documenta las intervenciones de IA y los archivos modificados.
+- Añade referencias `// AI-assisted: see docs/AI_LOG.md #N` cuando corresponda.
+
+Documenta las limitaciones reales, especialmente la integración de Mercado Pago.
+
+Si es viable, prepara también el PDF final de la bitácora, sin modificar el contenido histórico ni inventar entradas.
+
+## FASE 4 — COMMITS LOCALES
+
+Te autorizo a crear commits locales, pero con condiciones estrictas.
+
+Antes de comenzar:
+
+1. Verifica la rama actual y `git status`.
+2. Identifica los cambios preexistentes sin descartarlos.
+3. Conserva todos los cambios válidos del proyecto.
+
+Crea commits locales organizados por funcionalidad, sin mezclar cambios innecesarios.
+
+Por ejemplo:
+
+- Historial y filtros.
+- Detalle y mapa.
+- Paginación y pruebas.
+- Documentación final.
+
+Los nombres deben describir los cambios realmente realizados.
+
+**PROHIBIDO:**
+
+- `git push`.
+- Crear o fusionar pull requests.
+- `git reset --hard`.
+- `git clean -fd`.
+- Forzar cambios de rama descartando trabajo.
+- Modificar archivos `.env`.
+- Incluir secretos en Git.
+- Desplegar Firebase.
+- Activar Blaze o servicios de pago.
+- Modificar datos reales de producción.
+- Introducir cambios innecesarios en módulos que ya funcionan.
+
+No crees commits si las verificaciones críticas fallan. En ese caso, conserva los cambios e informa el bloqueo.
+
+## FASE 5 — REPORTE FINAL
+
+Al terminar, entrega un informe completo con:
+
+1. Funcionalidades implementadas.
+2. Archivos creados y modificados.
+3. Pruebas ejecutadas y resultados exactos.
+4. Requisitos de la guía cumplidos, parciales y pendientes.
+5. Limitaciones técnicas.
+6. Commits locales creados, con sus hashes.
+7. Estado final de Git.
+8. Índices o configuraciones pendientes de despliegue.
+9. Comandos para ejecutar y probar la aplicación en mi iPhone.
+10. Instrucciones para revisar y publicar los commits posteriormente.
+
+**Trabaja de forma autónoma, avanzando por fases, sin solicitar confirmación por cada archivo.**
+
+Si encuentras un problema de alto riesgo que no puedes resolver sin modificar producción, credenciales o componentes críticos, no realices esa acción. Documenta el bloqueo y continúa con las tareas independientes.
+
+No sacrifiques la estabilidad de las funcionalidades existentes para completar un requisito secundario.
+
+Cuando termines las fases autorizadas, detente.
+
+El objetivo es que al regresar encuentre el proyecto implementado, probado, documentado y con los commits locales preparados para la entrega.
+````
+
+- **Resumen de la respuesta:**
+  - **Estado inicial:** se revisaron `git status`, posibles secretos y exclusiones. No había secretos; `.env`, `functions/.env.local`, `.secret.local` y `node_modules` están excluidos. El trabajo pendiente de las entradas #37 a #39 se confirmó primero, agrupado por archivos, después de pasar la regresión completa.
+  - **Causa del fallo de ordenación:** `getDriverTripHistory` pedía 50 viajes sin orden de Firestore y los ordenaba en la app. Una prueba con 60 viajes, cuyos IDs crecen al revés que sus fechas, confirmó que la versión anterior devolvía los 50 más antiguos y omitía los 10 más recientes.
+  - **Consulta corregida (`tripHistoryService.js`):**
+    - Viajes finalizados propios, ordenados por `createdAt` descendente, con el periodo y el método de pago filtrados en Firestore y páginas de 20 con cursor.
+    - Cumple la regla existente (`limit <= 50`), así que no hubo que cambiar `firestore.rules`.
+    - Requiere dos índices compuestos, declarados en `firestore.indexes.json` y no desplegados.
+    - Si Firestore responde `failed-precondition`, la app lee todos los viajes finalizados con la consulta ya indexada y los filtra y ordena localmente.
+    - `getDriverTripHistory` devuelve ahora los 50 más recientes; lo usan Ganancias y Pagos.
+  - **Lógica (`tripHistoryLogic.js`):** periodos Hoy, Semana (lunes a domingo), Mes y Rango (días completos e incluidos), con fin exclusivo y hora local. Incluye filtros combinados, orden estable, páginas sin duplicados, datos de la lista y del detalle (sin inventar: «No disponible» y «Sin calificación») y coordenadas válidas para el mapa.
+  - **Interfaz:**
+    - **Historial (`TripHistoryScreen.js`):** muestra fecha y hora, origen y destino, categoría, tarifa, ganancia neta, estado y pago. Incluye filtros (`HistoryFilters.js`, con el `DateTimePicker` existente), «Cargar más», actualizar al deslizar, mensajes según el filtro y error con reintento.
+    - **Detalle (`TripHistoryDetail.js`):** se abre en un `Modal` con `SafeAreaProvider` propio.
+    - **Mapa (`TripRouteMap.js`):** origen, destino y ruta de referencia OSRM, identificada como tal.
+    - `DriverMap` no se reutilizó directamente porque depende de la posición GPS y del viaje activo; solo se exportó `getMapProvider`.
+  - **Documentación:** README (historial, índices pendientes, ejecución en iPhone), `docs/CUMPLIMIENTO.md` (reporte de cumplimiento por sección de la guía) y `docs/AI_LOG.pdf`, generado desde el Markdown con `marked` (ya presente en `node_modules`) y Chrome sin interfaz.
+  - **Campo «Commit»:** se completó en las entradas #35 a #39 con los hashes reales. Las entradas #30 a #34 conservan «Pendiente», porque corresponden a commits anteriores del integrante.
+- **Qué se usó / modificó / descartó:**
+  - **Reutilizado:** `routeService.getDrivingRoute`, el proveedor de mapas de `DriverMap`, `getTripEarnings`, `getTripPaymentLabel`, `fetchAllPages` y el patrón de `DateTimePicker` del registro.
+  - **Descartado:**
+    - Modificar `firestore.rules`.
+    - Desplegar los índices.
+    - Cambiar la navegación: se usó un `Modal`.
+    - Guardar la geometría de la ruta en los viajes: cambiaría el ciclo del viaje.
+- **Archivos modificados:**
+  - **Nuevos:** `src/utils/tripHistoryLogic.js`, `src/services/tripHistoryService.js`, `src/hooks/useTripHistory.js`, `src/components/history/HistoryFilters.js`, `src/components/history/TripHistoryDetail.js`, `src/components/history/TripRouteMap.js`, `tests/tripHistory.test.cjs`, `tests/tripHistory.integration.test.cjs` y `docs/CUMPLIMIENTO.md`.
+  - **Modificados:** `src/screens/home/TripHistoryScreen.js`, `src/services/tripService.js`, `src/components/map/DriverMap.js` (solo `export`), `firestore.indexes.json`, `tests/activeTripService.test.cjs`, `package.json`, `README.md` y `docs/AI_LOG.md`.
+  - **Generado:** `docs/AI_LOG.pdf`.
+- **Commit:** `2cda7e4` (orden, paginación y pruebas), `ec76dcb` (detalle y mapa), `d285c5c` (pantalla y filtros) y el commit de documentación final, que contiene esta entrada.
+- **Verificación:**
+  - **Suites:**
+    - `npm run test:unit`: 159/159.
+    - `npm run test:integration`: 46/46, incluida la paginación completa sin duplicados y los filtros contra el emulador con reglas.
+    - `npm run test:rules`: 156/156, sin avisos «maximum of 1000 expressions».
+    - `npm run test:functions`: 13/13 y 12/12.
+  - **Regresión del fallo original:** con 60 viajes, la versión anterior omitía el más reciente y la nueva devuelve exactamente los 50 más recientes.
+  - **Expo:** `npx expo-doctor` 20/20. `npx expo export` genera los bundles de iOS (1014 módulos), Android (1018) e iOS en desarrollo con el MODO DEMOSTRACIÓN (1133).
+  - **Repositorio:** `git diff --check` sin errores.
+  - **No ejecutado:** la prueba visual en un dispositivo físico de la nueva pantalla del historial y del detalle, y la consulta ordenada contra el proyecto real (los índices no están desplegados y el emulador no los exige).
+- **Limitaciones:**
+  - La ruta del detalle es de referencia, no el recorrido real.
+  - No hay calificación del pasajero.
+  - En producción, mientras no se desplieguen los índices, se usa el respaldo, que lee todos los viajes finalizados.
+  - La integración con la API real de Mercado Pago sigue sin probarse (entrada #37); la presentación usa el MODO DEMOSTRACIÓN, que no es Mercado Pago.
+- **Aprendizaje:** Limitar una consulta antes de ordenarla en el servidor devuelve un subconjunto arbitrario, no los más recientes. El orden debe aplicarse en Firestore antes del límite. Un respaldo automático ante un índice ausente permite publicar el cambio sin romper la app mientras se despliega el índice.
+
 ---
 
 ## Consideraciones generales
 
 - Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
-- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26, #27, #28, #29, #30, #31, #32, #33 y #34 se realizaron con Claude Code en el repositorio local.
+- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #39 y #40 se realizaron con Claude Code en el repositorio local.
 - Cuando un prompt no se conserva literalmente, el campo se identifica como resumen.
 - Los archivos generados por la plantilla de Expo (entrada #1) y por npm (`package-lock.json`) no constituyen código generado por IA.
 - Los commits de documentación `e7f8588`, `8748a20`, `f5ef7a9`, `04788d3`, `74b621a`, `3669693`, `8e6ef79`, `eff416b` y `8cf42fd` solo actualizan esta bitácora o el README; no consta el uso de IA en ellos.
