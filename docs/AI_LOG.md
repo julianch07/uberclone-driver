@@ -591,6 +591,7 @@ Quiero un módulo completo, coherente, probado e integrado con el proyecto exist
 # UberClone Driver — Módulo 2: Solicitudes y ciclo completo del viaje
 
 Actúa como desarrollador senior especializado en React Native, Expo SDK 58, JavaScript, Firebase Authentication, Cloud Firestore, geolocalización, estados transaccionales y pruebas automatizadas.
+- **Commit:** `b7cfcba` (`feat: implementar solicitudes y ciclo completo de viajes`).
 
 ## 1. Contexto del proyecto
 
