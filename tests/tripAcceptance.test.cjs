@@ -21,6 +21,15 @@ const { acceptTripWithDatabase } = loadModule(
   { 'firebase/firestore': firestore }
 );
 
+// AI-assisted: see docs/AI_LOG.md #28
+// Aceptar exige la oferta del conductor; se crea con el servicio real.
+const {
+  createTripOfferWithDatabase,
+  rejectTripOfferWithDatabase,
+} = loadModule('src/services/tripOfferService.js', {
+  'firebase/firestore': firestore,
+});
+
 // Datos representativos de un conductor real registrado desde la app.
 function representativeDriver() {
   return {
@@ -131,6 +140,17 @@ test('Integración real de aceptación de viajes', async (t) => {
     }
 
     await t.test('Acepta un viaje pendiente con driverId null', async () => {
+      // AI-assisted: see docs/AI_LOG.md #28
+      assert.equal(
+        await createTripOfferWithDatabase(database, 'driver-integration', 'trip-integration'),
+        true
+      );
+      // Repetir no recrea la oferta ni reinicia el plazo.
+      assert.equal(
+        await createTripOfferWithDatabase(database, 'driver-integration', 'trip-integration'),
+        false
+      );
+
       const result = await acceptTripWithDatabase(
         database,
         'trip-integration',
@@ -145,6 +165,7 @@ test('Integración real de aceptación de viajes', async (t) => {
     });
 
     await t.test('Acepta un viaje creado sin el campo driverId', async () => {
+      await createTripOfferWithDatabase(database, 'driver-integration', 'trip-no-driver-field');
       await acceptTripWithDatabase(
         database,
         'trip-no-driver-field',
@@ -157,6 +178,7 @@ test('Integración real de aceptación de viajes', async (t) => {
     });
 
     await t.test('Rechaza un viaje mal formado con un mensaje claro', async () => {
+      await createTripOfferWithDatabase(database, 'driver-integration', 'trip-string-fare');
       await assert.rejects(
         acceptTripWithDatabase(
           database,
@@ -179,6 +201,56 @@ test('Integración real de aceptación de viajes', async (t) => {
           'driver-integration'
         ),
         /ya fue aceptado/
+      );
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #28
+    async function seedPending(tripId) {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), 'trips', tripId), pendingTrip());
+      });
+    }
+
+    await t.test('Sin oferta no se puede aceptar y el mensaje lo explica', async () => {
+      await seedPending('trip-no-offer');
+
+      await assert.rejects(
+        acceptTripWithDatabase(database, 'trip-no-offer', 'driver-integration'),
+        /todavía no está lista/
+      );
+    });
+
+    await t.test('Una oferta vencida no se puede aceptar', async () => {
+      await seedPending('trip-offer-expired');
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'drivers', 'driver-integration', 'tripOffers', 'trip-offer-expired'),
+          { tripId: 'trip-offer-expired', status: 'offered', offeredAt: new Date(Date.now() - 20_000) }
+        );
+      });
+
+      await assert.rejects(
+        acceptTripWithDatabase(database, 'trip-offer-expired', 'driver-integration'),
+        /tiempo para aceptar/
+      );
+    });
+
+    await t.test('Una solicitud rechazada no se puede aceptar', async () => {
+      await seedPending('trip-offer-rejected');
+      await createTripOfferWithDatabase(database, 'driver-integration', 'trip-offer-rejected');
+      assert.equal(
+        await rejectTripOfferWithDatabase(database, 'driver-integration', 'trip-offer-rejected', 'manual'),
+        true
+      );
+      // Repetir el rechazo no vuelve a escribir.
+      assert.equal(
+        await rejectTripOfferWithDatabase(database, 'driver-integration', 'trip-offer-rejected', 'manual'),
+        false
+      );
+
+      await assert.rejects(
+        acceptTripWithDatabase(database, 'trip-offer-rejected', 'driver-integration'),
+        /Ya rechazaste/
       );
     });
   } finally {

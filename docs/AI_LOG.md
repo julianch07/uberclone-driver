@@ -579,12 +579,384 @@ Quiero un módulo completo, coherente, probado e integrado con el proyecto exist
   - Pendiente para el módulo de pagos: registrar el método y el estado del pago, y calcular el saldo del conductor (comisión de viajes en efectivo).
 - **Aprendizaje:** Cuando no existe un backend, las reglas de Firestore pueden recalcular un valor derivado de datos que el cliente no puede modificar, siempre que la fórmula use operaciones con resultados idénticos en ambos entornos (enteros y redondeo `floor(x + 0,5)`). Las pruebas de concurrencia contra el emulador revelan comportamientos de las transacciones que no aparecen en pruebas secuenciales.
 
+### Entrada #28
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Completar las solicitudes de viaje en tiempo real (tarjeta completa, 15 s, aceptar y rechazar) y el ciclo completo del viaje (en camino, llegada al origen, pasajero a bordo, finalización), con reglas de Firestore, simulador de solicitudes y pruebas.
+- **Prompt (texto literal):**
+
+```text
+# UberClone Driver — Módulo 2: Solicitudes y ciclo completo del viaje
+
+Actúa como desarrollador senior especializado en React Native, Expo SDK 58, JavaScript, Firebase Authentication, Cloud Firestore, geolocalización, estados transaccionales y pruebas automatizadas.
+
+## 1. Contexto del proyecto
+
+Estamos desarrollando UberClone Driver, exclusivamente la aplicación del conductor.
+
+Tecnologías actuales:
+- React Native con Expo SDK 58.
+- JavaScript, sin TypeScript.
+- Firebase Authentication anónima.
+- Cloud Firestore con reglas de seguridad.
+- Cloudinary para documentos e imágenes.
+- Ubicación mediante expo-location.
+- Mapas y rutas con la integración existente de OSRM.
+- Context API y hooks de React.
+- Pruebas unitarias, integración y reglas de Firestore.
+
+La rama principal contiene el PR #25, que implementó tarifas y comisiones con cálculo centralizado, desglose financiero y nuevas reglas de Firestore.
+
+El último merge de main es `88f072c`.
+
+La rama actual de trabajo es:
+
+`feat/solicitudes-ciclo-viaje`
+
+Ya fue creada por el estudiante.
+
+El módulo de tarifas y comisiones reportó 203 pruebas aprobadas.
+
+## 2. Reglas obligatorias de trabajo
+
+1. Comprueba que estás en `feat/solicitudes-ciclo-viaje`.
+2. No crees ramas ni cambies de rama.
+3. No ejecutes git commit, git push, git merge, git rebase ni comandos de Pull Request.
+4. El estudiante y ChatGPT se encargan exclusivamente del control de versiones y GitHub.
+5. No añadas trailers `Co-Authored-By` ni firmas automáticas.
+6. No modifiques `.env` ni expongas secretos.
+7. No publiques reglas ni índices de Firebase.
+8. No modifiques datos reales de Firestore sin autorización.
+9. No reescribas módulos existentes innecesariamente.
+10. Mantén compatibilidad con los viajes anteriores y el módulo de tarifas.
+11. Utiliza JavaScript, no TypeScript.
+12. Puedes crear y modificar archivos, ejecutar pruebas e instalar dependencias únicamente cuando sean imprescindibles.
+13. Documenta la asistencia de IA en `docs/AI_LOG.md`, con una nueva entrada #28 y comentarios `AI-assisted` correspondientes.
+14. No avances al módulo de pagos. Solo prepara los datos y contratos necesarios para su futura integración.
+15. No implementes una aplicación de pasajero.
+
+## 3. Auditoría técnica inicial
+
+Antes de modificar archivos, inspecciona el código real y determina qué funcionalidades ya existen y cuáles deben completarse.
+
+Revisa especialmente:
+
+- `src/services/tripService.js`
+- `src/services/tripLifecycle.js`
+- `src/utils/tripLogic.js`
+- `src/utils/tripRequestTimer.js`
+- `src/utils/tripMapLogic.js`
+- `src/utils/fareLogic.js`
+- `src/config/pricing.js`
+- `src/screens/home/DriverHomeScreen.js`
+- Los componentes actuales de solicitudes.
+- Los hooks y el contexto del conductor.
+- `firestore.rules`
+- Las pruebas unitarias y de integración existentes.
+
+No presupongas que los nombres o ubicaciones de todos los archivos son exactos: inspecciona el repositorio y adapta la implementación a su estructura real.
+
+## 4. Solicitudes completas en tiempo real
+
+Conserva el sistema de suscripción Firestore mediante `onSnapshot`.
+
+Implementa o completa el hook `useTripRequests`, reutilizando los servicios actuales.
+
+Debe:
+
+- Escuchar solicitudes disponibles para el conductor.
+- Limpiar las suscripciones al desmontar componentes.
+- Evitar suscripciones duplicadas.
+- Controlar estados de carga y errores.
+- No mostrar solicitudes expiradas, rechazadas o ya aceptadas por otro conductor.
+- Recuperar correctamente el estado después de cerrar y abrir la aplicación.
+- Mantener la compatibilidad con el Context API existente.
+
+La tarjeta de solicitud debe mostrar:
+
+- Origen.
+- Destino.
+- Distancia estimada.
+- Duración estimada.
+- Categoría del vehículo.
+- Método de pago.
+- Tarifa estimada.
+- Comisión estimada.
+- Ganancia neta estimada del conductor.
+- Tiempo restante para responder.
+
+Usa los cálculos del módulo de tarifas. No dupliques fórmulas ni inventes distancias o tiempos.
+
+Para solicitudes antiguas sin todos los campos, presenta información disponible sin bloquear innecesariamente el funcionamiento.
+
+## 5. Temporizador obligatorio de 15 segundos
+
+La guía exige exactamente 15 segundos.
+
+Actualiza la constante existente de 20.000 ms a 15.000 ms.
+
+Requisitos:
+
+- Cuenta regresiva visible.
+- Basada en un timestamp persistente de la solicitud, no únicamente en el reloj de montaje del componente.
+- Debe funcionar correctamente si la aplicación se minimiza o vuelve al primer plano.
+- No debe reiniciarse al volver a renderizar.
+- No debe permitir aceptar una solicitud vencida.
+- Limpieza correcta de intervalos y efectos.
+- Pruebas de los límites temporales.
+
+Si el timestamp del servidor aún no está disponible, evita tratar una hora provisional del cliente como definitiva.
+
+## 6. Aceptar y rechazar solicitudes
+
+Implementa:
+
+- Botón Aceptar.
+- Botón Rechazar.
+- Rechazo automático al vencer el tiempo.
+- Estados de procesamiento para evitar pulsaciones duplicadas.
+- Manejo de errores de conexión.
+- `useCallback` para los manejadores de aceptación y rechazo.
+
+Condiciones de seguridad:
+
+- Una solicitud no puede ser aceptada por dos conductores.
+- Una solicitud vencida no puede aceptarse.
+- Un rechazo de un conductor no debe cancelar injustificadamente la solicitud para todos si el modelo permite varios conductores.
+- El rechazo automático debe quedar persistido o reflejado de manera coherente en Firestore, no limitarse a ocultar una tarjeta.
+- Si el conductor está desconectado, no debe aceptar nuevas solicitudes.
+- Las reglas Firestore deben impedir transiciones no autorizadas.
+
+Define claramente si las solicitudes son asignadas a un conductor o compartidas entre varios. Adapta el rechazo a ese modelo y documenta la decisión.
+
+Utiliza transacciones cuando sea necesario.
+
+## 7. Ciclo completo del viaje
+
+Completa el flujo:
+
+Solicitud pendiente → Aceptada → Conductor en camino → Llegué al origen → Pasajero a bordo → Viaje en curso → Viaje finalizado.
+
+La guía contempla estados como:
+
+- `requested`
+- `accepted`
+- `driver_arriving`
+- `in_progress`
+- `completed`
+- `paid`
+- `cancelled`
+- `rejected`
+
+El proyecto ya utiliza `pending` como equivalente de `requested`.
+
+Conserva `pending` para evitar romper datos y reglas existentes, documentando la equivalencia.
+
+Analiza qué estados adicionales deben persistirse y cuáles pueden representarse mediante acciones o marcas de tiempo sin duplicar estados.
+
+Incluye:
+
+- Botón para indicar que el conductor llegó al punto de recogida.
+- Botón "Pasajero a bordo" para iniciar el viaje.
+- Ruta al origen antes de recoger al pasajero.
+- Ruta al destino después de recogerlo.
+- Finalización del viaje con desglose de tarifas.
+- Recuperación de viajes activos al reabrir la aplicación.
+- Prevención de transiciones inválidas o duplicadas.
+- Compatibilidad con viajes anteriores.
+
+No implementes todavía el cobro ni marques automáticamente los viajes como pagados. Eso corresponde al módulo 3.
+
+## 8. Integración con tarifas
+
+Reutiliza:
+
+- `src/config/pricing.js`
+- `calculateFare`
+- El desglose de tarifas.
+- Las reglas y validaciones del PR #25.
+
+Asegúrate de que:
+
+- La tarjeta muestre importes consistentes.
+- La finalización guarde el desglose correcto.
+- Las propinas no se alteren.
+- No se dupliquen comisiones.
+- Los viajes antiguos sigan funcionando.
+
+No modifiques la fórmula de precios sin una razón técnica justificada.
+
+## 9. Simulador de solicitudes de prueba — SIN APP DE PASAJERO
+
+No desarrolles una aplicación de pasajero.
+
+Crea una herramienta de desarrollo independiente que permita generar solicitudes de prueba compatibles con el modelo de Firestore.
+
+Puede ser:
+
+- Una plantilla JSON documentada para introducirla manualmente en Firebase Console.
+- Un script local de desarrollo para generar viajes de prueba.
+
+Prioriza una solución sencilla y segura.
+
+Condiciones:
+
+- Separada del código de producción.
+- No accesible desde la aplicación del conductor.
+- No debe modificar las reglas para permitir a cualquier conductor crear solicitudes.
+- No debe requerir credenciales privadas dentro de la app.
+- No debe crear viajes reales por accidente.
+- Debe permitir probar las categorías Económico, XL y Premium.
+- Debe incluir distancia, duración, categoría, origen, destino, tarifa estimada y método de pago.
+- Debe respetar los campos, timestamps y estados esperados.
+- Debe permitir comprobar aceptación, rechazo, expiración y finalización.
+
+Si eliges un script, que sea seguro por defecto y utilice preferentemente el emulador de Firestore. No debe escribir en Firebase real sin autorización explícita.
+
+Documenta cómo usarlo.
+
+## 10. Seguridad de Firestore
+
+Revisa y modifica las reglas locales cuando sea necesario.
+
+Debes impedir:
+
+- Aceptaciones duplicadas.
+- Aceptación de solicitudes vencidas.
+- Cambios de conductor no autorizados.
+- Alteraciones de tarifa, distancia, duración, categoría o propina por parte del conductor.
+- Transiciones de estados inválidas.
+- Rechazos de solicitudes ajenas.
+- Modificaciones posteriores a la finalización del viaje.
+- Cambios arbitrarios de estados de pago.
+
+Conserva las validaciones financieras implementadas en el módulo anterior.
+
+No publiques las reglas.
+
+Si alguna garantía exige un backend o una autoridad externa, documenta esa limitación sin simular que las reglas por sí solas la resuelven.
+
+## 11. Pruebas obligatorias
+
+Agrega o actualiza pruebas para:
+
+### Solicitudes
+- Suscripción y limpieza.
+- Tarjeta con todos los datos.
+- Compatibilidad con documentos antiguos.
+- Rechazo manual.
+- Rechazo automático.
+- Aceptación concurrente.
+- Solicitud vencida.
+- Conductor desconectado.
+
+### Temporizador
+- 15 segundos exactos.
+- Límites temporales.
+- Reanudación después de segundo plano.
+- No reinicio accidental.
+- Limpieza de intervalos.
+
+### Ciclo del viaje
+- Aceptación.
+- Conductor en camino.
+- Llegada al origen.
+- Pasajero a bordo.
+- Finalización.
+- Recuperación de viaje activo.
+- Transiciones inválidas.
+- Operaciones repetidas.
+- Compatibilidad con viajes antiguos.
+
+### Seguridad
+- Reglas Firestore.
+- Restricciones financieras.
+- Rechazos no autorizados.
+- Aceptación de solicitudes vencidas.
+- Intentos de alterar datos protegidos.
+
+Todas las pruebas anteriores deben seguir pasando.
+
+Ejecuta:
+
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:rules` con emulador.
+- `npm run test:all` si el entorno está disponible.
+- `npx expo-doctor`
+- `npx expo export --platform ios`
+- `git diff --check`
+
+No ocultes fallos ni elimines pruebas para hacer que el conjunto pase.
+
+## 12. Documentación y trazabilidad
+
+Actualiza:
+
+- `docs/AI_LOG.md` con la entrada #28.
+- README con el modelo de solicitudes y la forma de probarlo.
+- Comentarios `AI-assisted: see docs/AI_LOG.md #28` en el código intervenido.
+
+Incluye el prompt literal cuando esté disponible y deja el hash del futuro commit pendiente para que lo registre el estudiante.
+
+## 13. Entrega final
+
+Cuando termines, presenta:
+
+1. Resumen funcional de todo lo implementado.
+2. Archivos creados y modificados.
+3. Modelo de datos de Firestore.
+4. Explicación de estados y transiciones.
+5. Estrategia de rechazo y expiración.
+6. Simulador o plantilla de solicitudes de prueba.
+7. Resultados exactos de las pruebas.
+8. Cambios locales en reglas Firestore.
+9. Riesgos y limitaciones pendientes.
+10. Instrucciones para probar en Expo Go.
+11. Comandos de revisión Git, sin ejecutarlos para publicar.
+12. Confirmación de que no hiciste commits, push, PR, merge ni despliegues.
+
+No avances al módulo de pagos.
+
+El objetivo es entregar un módulo de solicitudes y ciclo de viaje realmente funcional, seguro, integrado y probado, no solamente una interfaz visual.
+```
+
+- **Resumen de la respuesta:** Se implementó un modelo de solicitudes compartidas con una oferta por conductor (`drivers/{uid}/tripOffers/{tripId}`). La oferta guarda `offeredAt` con la hora del servidor y de ella se cuentan los 15 s, de modo que el plazo es persistente y las reglas lo verifican con `request.time`. Se añadieron el estado `driver_arriving` y la marca `arrivedAt` ("Llegué al origen"), el hook `useTripRequests` y la tarjeta con todos los datos, que usa el desglose del módulo de tarifas. También se creó un simulador de solicitudes limitado al emulador.
+- **Qué se usó / modificó / descartó:**
+  - **Modelo:** las solicitudes son compartidas entre los conductores habilitados. El rechazo manual o por vencimiento se persiste en la oferta del conductor (`status: "rejected"`, `reason`, `respondedAt`) y no cancela la solicitud para los demás. Se descartó un estado `rejected` global, que requeriría una autoridad (backend) para decidir que nadie la aceptó.
+  - **Estados:** se conservó `pending` como equivalente de `requested`. Se persistió `driver_arriving` (estado de la guía) y la llegada se registró como marca de tiempo (`arrivedAt`), sin crear un estado nuevo. Se eliminó la transición directa `accepted → in_progress`: "Pasajero a bordo" exige haber llegado al origen. `paid` queda para el módulo de pagos. `paymentMethod` (`cash`, `mercadopago`, `stripe`) queda como contrato de datos, fijado al crear la solicitud y protegido frente al conductor.
+  - **Temporizador:** 15 s desde `offeredAt`. Mientras el servidor no confirma la marca, la tarjeta muestra "Preparando solicitud..." y no permite aceptar. El rechazo automático espera 1 s adicional para que la hora del servidor también haya superado el plazo, y al volver del segundo plano se recalcula de inmediato.
+  - **Controlador:** la lógica de suscripciones, ofertas, temporizador y rechazo automático se separó de React en `createTripRequestFeed` para poder probar la suscripción, la limpieza y el intervalo en Node.
+  - **Consulta de solicitudes:** se ordena por `createdAt` descendente para que las solicitudes antiguas que siguen en `pending` no ocupen los 20 resultados. Requiere un índice compuesto nuevo y que los viajes tengan `createdAt` de tipo timestamp.
+  - **Corrección en las reglas:** las pruebas mostraron que el motor de reglas no cortocircuita `&&` ni `||`, de modo que cada actualización evaluaba la regla de aceptación y las cinco ramas del ciclo de vida, y se alcanzaba el límite de 1000 expresiones por petición. Se despachó con el operador `?:`, que solo evalúa la rama elegida, sin cambiar ninguna condición. *Corrección del informe de la entrada #27:* aquella ejecución ya registraba 34 avisos de este límite en las pruebas negativas, que la búsqueda usada entonces no detectó. Tras esta corrección quedan 0.
+  - **Simulador:** `scripts/dev/simulateTripRequests.cjs` (`create`, `list`, `clear`, `demo`) solo usa el emulador, exige un proyecto `demo-*` y no requiere credenciales. Para Expo Go se añadió la plantilla `scripts/dev/tripRequestTemplate.json`.
+  - No se instalaron dependencias.
+- **Archivos creados:** `src/hooks/useTripRequests.js`, `src/services/tripOfferService.js`, `src/services/tripRequestFeed.js`, `src/utils/tripRequestLogic.js`, `scripts/dev/simulateTripRequests.cjs`, `scripts/dev/tripRequestTemplate.json` y `tests/tripRequests.test.cjs`.
+- **Archivos modificados:** `src/components/trips/TripRequests.js`, `src/services/tripService.js`, `src/services/tripAcceptance.js`, `src/services/tripLifecycle.js`, `src/utils/tripLogic.js`, `src/utils/tripRequestTimer.js`, `src/utils/activeTripLogic.js`, `src/utils/tripMapLogic.js`, `firestore.rules`, `firestore.indexes.json`, `tests/trips.rules.test.cjs`, `tests/tripAcceptance.test.cjs`, `tests/tripCycle.integration.test.cjs`, `tests/tripRequestTimer.test.cjs`, `tests/tripLogic.test.cjs`, `tests/activeTripService.test.cjs`, `package.json` (script `test:unit`), `README.md` y `docs/AI_LOG.md`.
+- **Commit:** Pendiente (lo registra el integrante).
+- **Verificación:**
+  - `npm run test:unit`: 122/122. `npm run test:integration`: 24/24. `npm run test:rules` con el emulador: 121/121. `npm run test:all`: **267 aprobadas y 0 fallidas**.
+  - 0 avisos del límite de 1000 expresiones en todas las salidas.
+  - Pruebas existentes actualizadas por cambio de requisito: el temporizador pasa de 20 a 15 s, `canStartTrip` ya no acepta `accepted`, la consulta de recuperación incluye `driver_arriving` y las aceptaciones requieren oferta. Ninguna prueba se eliminó.
+  - `npx expo-doctor`: 20/20. `npx expo export --platform ios`: bundle generado (992 módulos). `git diff --check` sin observaciones.
+  - El simulador se ejecutó contra el emulador (`create`, `list`, `demo`, `clear`) y rechazó un proyecto que no empieza por `demo-`.
+  - No se probó en Expo Go: las reglas y el índice nuevos no se han publicado.
+- **Limitaciones:**
+  - Sin backend, el plazo de 15 s comienza cuando el cliente del conductor registra la oferta; una aplicación modificada podría retrasar ese registro. Un despachador en el servidor que asigne las ofertas lo resolvería.
+  - Una solicitud que ningún conductor acepta permanece en `pending`.
+  - La cuenta regresiva usa el reloj del dispositivo frente a `offeredAt`; un desfase del reloj altera lo que se muestra, aunque las reglas deciden con la hora del servidor.
+  - Las solicitudes sin `createdAt` de tipo timestamp no aparecen en la lista.
+  - Al publicar, una versión anterior de la app no podrá aceptar viajes ni iniciar un viaje desde `accepted`.
+- **Aprendizaje:** En las reglas de Firestore, `&&` y `||` no evitan evaluar el resto de la expresión, así que las reglas extensas deben despacharse con `?:` para no superar el límite de expresiones. Al verificar la ausencia de un aviso conviene buscar el texto exacto que produce la herramienta. Separar la lógica de suscripciones y temporizadores de React permite probar su limpieza sin un entorno de interfaz.
+
 ---
 
 ## Consideraciones generales
 
 - Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
-- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26 y #27 se realizaron con Claude Code en el repositorio local.
+- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26, #27 y #28 se realizaron con Claude Code en el repositorio local.
 - Cuando un prompt no se conserva literalmente, el campo se identifica como resumen.
 - Los archivos generados por la plantilla de Expo (entrada #1) y por npm (`package-lock.json`) no constituyen código generado por IA.
 - Los commits de documentación `e7f8588`, `8748a20`, `f5ef7a9`, `04788d3`, `74b621a`, `3669693`, `8e6ef79`, `eff416b` y `8cf42fd` solo actualizan esta bitácora o el README; no consta el uso de IA en ellos.

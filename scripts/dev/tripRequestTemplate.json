@@ -1,0 +1,55 @@
+{
+  "_descripcion": "Plantilla de solicitud de viaje para crear manualmente en Firebase Console (colección trips). Ver README, sección 'Solicitudes de viaje'. No incluir los campos que empiezan por guion bajo.",
+  "_tipos": {
+    "status": "string",
+    "driverId": "null",
+    "pickup": "map { address: string, latitude: number, longitude: number }",
+    "destination": "map { address: string, latitude: number, longitude: number }",
+    "distanceKm": "number",
+    "durationMin": "number",
+    "category": "string: economy | xl | premium",
+    "paymentMethod": "string: cash | mercadopago | stripe",
+    "estimatedFare": "number (resultado de calculateFare para distanceKm, durationMin y category)",
+    "tip": "number entero (opcional)",
+    "createdAt": "timestamp con la fecha y hora actuales"
+  },
+  "economy": {
+    "status": "pending",
+    "driverId": null,
+    "pickup": { "address": "Parque de Berrío, Medellín", "latitude": 6.2518, "longitude": -75.5636 },
+    "destination": { "address": "Estadio Atanasio Girardot, Medellín", "latitude": 6.2565, "longitude": -75.5905 },
+    "distanceKm": 8.5,
+    "durationMin": 22,
+    "category": "economy",
+    "paymentMethod": "cash",
+    "estimatedFare": 19200,
+    "tip": 0,
+    "createdAt": "<timestamp actual>"
+  },
+  "xl": {
+    "status": "pending",
+    "driverId": null,
+    "pickup": { "address": "Parque de Berrío, Medellín", "latitude": 6.2518, "longitude": -75.5636 },
+    "destination": { "address": "Estadio Atanasio Girardot, Medellín", "latitude": 6.2565, "longitude": -75.5905 },
+    "distanceKm": 8.5,
+    "durationMin": 22,
+    "category": "xl",
+    "paymentMethod": "mercadopago",
+    "estimatedFare": 26900,
+    "tip": 0,
+    "createdAt": "<timestamp actual>"
+  },
+  "premium": {
+    "status": "pending",
+    "driverId": null,
+    "pickup": { "address": "Parque de Berrío, Medellín", "latitude": 6.2518, "longitude": -75.5636 },
+    "destination": { "address": "Estadio Atanasio Girardot, Medellín", "latitude": 6.2565, "longitude": -75.5905 },
+    "distanceKm": 8.5,
+    "durationMin": 22,
+    "category": "premium",
+    "paymentMethod": "stripe",
+    "estimatedFare": 34600,
+    "tip": 2000,
+    "createdAt": "<timestamp actual>"
+  }
+}

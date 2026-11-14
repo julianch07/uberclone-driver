@@ -197,12 +197,19 @@ service cloud.firestore {
     // AI-assisted: see docs/AI_LOG.md #17
     function driverCanAcceptTrip(uid) {
       let driverPath = /databases/$(database)/documents/drivers/$(uid);
-      let driver = get(driverPath).data;
 
+      // AI-assisted: see docs/AI_LOG.md #28
+      // El documento se pasa como parámetro para leerlo una sola vez: las
+      // variables let se evalúan en cada uso y la regla superaba el límite
+      // de 1000 expresiones por petición.
       return request.auth != null
         && request.auth.uid == uid
         && exists(driverPath)
-        && driver.get('approvalStatus', null) == 'approved'
+        && eligibleDriverData(get(driverPath).data);
+    }
+
+    function eligibleDriverData(driver) {
+      return driver.get('approvalStatus', null) == 'approved'
         && driver.get('registrationCompletedAt', null) is timestamp
         && driver.get('personalData', null) is map
         && driver.personalData.get('fullName', null) is string
@@ -231,7 +238,10 @@ service cloud.firestore {
     // Un viaje sin el campo driverId (creado manualmente en la consola) se
     // considera no asignado, igual que driverId == null. Un viaje con
     // driverId asignado sigue sin poder aceptarse.
-    function validTripAcceptance() {
+    function validTripAcceptance(tripId) {
+      // AI-assisted: see docs/AI_LOG.md #28
+      // Oferta del conductor para esta solicitud (drivers/{uid}/tripOffers).
+      let offerPath = /databases/$(database)/documents/drivers/$(request.auth.uid)/tripOffers/$(tripId);
       return request.auth != null
         && resource.data.get('status', null) == 'pending'
         && request.resource.data.get('status', null) == 'accepted'
@@ -244,7 +254,20 @@ service cloud.firestore {
         && request.resource.data.get('driverId', null) == request.auth.uid
         && request.resource.data.diff(resource.data)
           .affectedKeys().hasOnly(['status', 'driverId'])
-        && driverCanAcceptTrip(request.auth.uid);
+        && driverCanAcceptTrip(request.auth.uid)
+        // AI-assisted: see docs/AI_LOG.md #28
+        // Solo dentro de los 15 s de la oferta (hora del servidor) y si el
+        // conductor no la rechazó.
+        && exists(offerPath)
+        && openTripOffer(get(offerPath).data);
+    }
+
+    // AI-assisted: see docs/AI_LOG.md #28
+    // Oferta vigente: sin rechazar y dentro de los 15 s desde offeredAt.
+    function openTripOffer(offer) {
+      return offer.get('status', null) == 'offered'
+        && offer.get('offeredAt', null) is timestamp
+        && request.time <= offer.offeredAt + duration.value(15, 's');
     }
 
     // AI-assisted: see docs/AI_LOG.md #27
@@ -278,13 +301,24 @@ service cloud.firestore {
     // Tarifa: (3.500 + km × 1.200 + min × 250) × multiplicador, redondeada
     // al múltiplo de 100 COP más cercano y con un mínimo de 6.000 COP.
     function calculatedTripFare(trip) {
-      let subtotal = 3500
-        + math.floor(trip.distanceKm * 1200 + 0.5)
-        + math.floor(trip.durationMin * 250 + 0.5);
-      let rounded = math.floor(
-        (subtotal * categoryMultiplierPercent(trip.category) + 5000) / 10000.0
-      ) * 100;
-      return rounded < 6000 ? 6000 : rounded;
+      return applyMinimumFare(
+        roundedTripFare(
+          3500
+            + math.floor(trip.distanceKm * 1200 + 0.5)
+            + math.floor(trip.durationMin * 250 + 0.5),
+          categoryMultiplierPercent(trip.category)
+        )
+      );
+    }
+
+    // AI-assisted: see docs/AI_LOG.md #28
+    // Funciones auxiliares para evaluar cada valor una sola vez.
+    function roundedTripFare(subtotal, multiplierPercent) {
+      return math.floor((subtotal * multiplierPercent + 5000) / 10000.0) * 100;
+    }
+
+    function applyMinimumFare(fare) {
+      return fare < 6000 ? 6000 : fare;
     }
 
     // Propina registrada en el viaje; ausente o null equivale a 0.
@@ -297,9 +331,17 @@ service cloud.firestore {
     // la comisión, su ganancia ni la propina. Sin datos de recorrido, la
     // tarifa es estimatedFare (compatibilidad con viajes anteriores).
     function validCompletionFareBreakdown(before, after) {
-      let tip = tripTip(before);
-      let fare = after.get('fare', null);
-      let commission = after.get('commission', null);
+      // AI-assisted: see docs/AI_LOG.md #28
+      return validFareBreakdownValues(
+        before,
+        after,
+        tripTip(before),
+        after.get('fare', null),
+        after.get('commission', null)
+      );
+    }
+
+    function validFareBreakdownValues(before, after, tip, fare, commission) {
       return tip is number
         && tip >= 0
         && math.floor(tip) == tip
@@ -322,65 +364,88 @@ service cloud.firestore {
     }
 
     // AI-assisted: see docs/AI_LOG.md #17
+    // AI-assisted: see docs/AI_LOG.md #28
+    // Ciclo del viaje asignado (solo el conductor asignado):
+    //   accepted → driver_arriving              (arrivingAt: "Voy en camino")
+    //   driver_arriving → driver_arriving       (arrivedAt: "Llegué al origen")
+    //   driver_arriving con arrivedAt → in_progress (startedAt: "Pasajero a bordo")
+    //   in_progress → completed                 (completedAt + desglose, #27)
+    //   accepted | driver_arriving → cancelled  (cancelledAt)
+    // Ningún otro campo puede cambiar: tarifa, distancia, duración, categoría,
+    // propina, método o estado de pago quedan protegidos.
     function validTripLifecycleTransition() {
+      return validLifecycleChange(
+        resource.data,
+        request.resource.data,
+        resource.data.get('status', null),
+        request.resource.data.get('status', null),
+        request.resource.data.diff(resource.data).affectedKeys()
+      );
+    }
+
+    function validLifecycleChange(before, after, from, to, changed) {
+      // AI-assisted: see docs/AI_LOG.md #28
+      // El motor de reglas no cortocircuita && ni ||: evalúa todas las
+      // ramas. Se despacha con ?:, que solo evalúa la rama elegida, para no
+      // superar el límite de 1000 expresiones por petición.
       return request.auth != null
+        && from in ['accepted', 'driver_arriving', 'in_progress']
+        && before.get('driverId', null) == request.auth.uid
+        && validTripLocation(before.get('pickup', null))
+        && validTripLocation(before.get('destination', null))
+        && before.get('estimatedFare', null) is number
+        && before.estimatedFare >= 0
+        && after.get('driverId', null) == before.get('driverId', null)
         && (
-          (
-            resource.data.get('status', null) == 'accepted'
-            && request.resource.data.get('status', null)
-              in ['in_progress', 'cancelled']
-          )
-          ||
-          (
-            resource.data.get('status', null) == 'in_progress'
-            && request.resource.data.get('status', null) == 'completed'
-          )
-        )
-        && resource.data.get('status', null) in [
-          'accepted', 'in_progress'
-        ]
-        && resource.data.get('driverId', null) == request.auth.uid
-        && validTripLocation(resource.data.get('pickup', null))
-        && validTripLocation(resource.data.get('destination', null))
-        && resource.data.get('estimatedFare', null) is number
-        && resource.data.estimatedFare >= 0
-        && request.resource.data.get('driverId', null)
-          == resource.data.get('driverId', null)
-        && (
-          (
-            resource.data.get('status', null) == 'accepted'
-            && request.resource.data.get('status', null) == 'in_progress'
-            && resource.data.get('startedAt', null) == null
-            && request.resource.data.get('startedAt', null) == request.time
-            && request.resource.data.diff(resource.data)
-              .affectedKeys().hasOnly(['status', 'startedAt'])
-          )
-          ||
-          (
-            resource.data.get('status', null) == 'in_progress'
-            && request.resource.data.get('status', null) == 'completed'
-            && resource.data.get('completedAt', null) == null
-            && request.resource.data.get('completedAt', null) == request.time
-            // AI-assisted: see docs/AI_LOG.md #27
-            && request.resource.data.diff(resource.data)
-              .affectedKeys().hasOnly([
-                'status', 'completedAt', 'fare', 'commission',
-                'commissionRate', 'driverEarnings', 'tip', 'fareSource'
-              ])
-            && validCompletionFareBreakdown(
-              resource.data, request.resource.data
-            )
-          )
-          ||
-          (
-            resource.data.get('status', null) == 'accepted'
-            && request.resource.data.get('status', null) == 'cancelled'
-            && resource.data.get('cancelledAt', null) == null
-            && request.resource.data.get('cancelledAt', null) == request.time
-            && request.resource.data.diff(resource.data)
-              .affectedKeys().hasOnly(['status', 'cancelledAt'])
-          )
+          from == 'accepted'
+            ? validAcceptedTripChange(before, after, to, changed)
+            : from == 'driver_arriving'
+              ? validArrivingTripChange(before, after, to, changed)
+              : validInProgressTripChange(before, after, to, changed)
         );
+    }
+
+    // accepted → driver_arriving ("Voy en camino") o → cancelled.
+    function validAcceptedTripChange(before, after, to, changed) {
+      return to == 'driver_arriving'
+        ? before.get('arrivingAt', null) == null
+          && after.get('arrivingAt', null) == request.time
+          && changed.hasOnly(['status', 'arrivingAt'])
+        : to == 'cancelled' && validTripCancellation(before, after, changed);
+    }
+
+    // driver_arriving → arrivedAt ("Llegué al origen"),
+    // → in_progress ("Pasajero a bordo", solo con arrivedAt) o → cancelled.
+    function validArrivingTripChange(before, after, to, changed) {
+      return to == 'driver_arriving'
+        ? before.get('arrivedAt', null) == null
+          && after.get('arrivedAt', null) == request.time
+          && changed.hasOnly(['arrivedAt'])
+        : to == 'in_progress'
+          ? before.get('arrivedAt', null) is timestamp
+            && before.get('startedAt', null) == null
+            && after.get('startedAt', null) == request.time
+            && changed.hasOnly(['status', 'startedAt'])
+          : to == 'cancelled' && validTripCancellation(before, after, changed);
+    }
+
+    // in_progress → completed con el desglose de tarifa (#27).
+    function validInProgressTripChange(before, after, to, changed) {
+      return to == 'completed'
+        && before.get('completedAt', null) == null
+        && after.get('completedAt', null) == request.time
+        // AI-assisted: see docs/AI_LOG.md #27
+        && changed.hasOnly([
+          'status', 'completedAt', 'fare', 'commission',
+          'commissionRate', 'driverEarnings', 'tip', 'fareSource'
+        ])
+        && validCompletionFareBreakdown(before, after);
+    }
+
+    function validTripCancellation(before, after, changed) {
+      return before.get('cancelledAt', null) == null
+        && after.get('cancelledAt', null) == request.time
+        && changed.hasOnly(['status', 'cancelledAt']);
     }
 
     match /trips/{tripId} {
@@ -406,8 +471,9 @@ service cloud.firestore {
           )
           || (
             resource.data.get('driverId', null) == request.auth.uid
+            // AI-assisted: see docs/AI_LOG.md #28
             && resource.data.get('status', null) in [
-              'accepted', 'in_progress'
+              'accepted', 'driver_arriving', 'in_progress'
             ]
             && request.query.limit <= 2
           )
@@ -424,16 +490,21 @@ service cloud.firestore {
         );
 
       // AI-assisted: see docs/AI_LOG.md #17
+      // AI-assisted: see docs/AI_LOG.md #28
+      // Una sola regla de actualización despachada con ?: según el estado
+      // actual: así solo se evalúa la aceptación o el ciclo de vida, y no
+      // ambas (el motor no cortocircuita && ni || y el límite de 1000
+      // expresiones es por petición).
       allow update: if request.auth != null
-        && resource.data.get('status', null) == 'pending'
-        && request.resource.data.get('status', null) == 'accepted'
-        && validTripAcceptance();
-
-      allow update: if request.auth != null
-        && resource.data.get('status', null) in [
-          'accepted', 'in_progress'
-        ]
-        && validTripLifecycleTransition();
+        && (
+          resource.data.get('status', null) == 'pending'
+            ? request.resource.data.get('status', null) == 'accepted'
+              && validTripAcceptance(tripId)
+            : resource.data.get('status', null) in [
+                'accepted', 'driver_arriving', 'in_progress'
+              ]
+              && validTripLifecycleTransition()
+        );
     }
 
     match /driverLocations/{uid} {
@@ -447,6 +518,51 @@ service cloud.firestore {
 
       // El propietario puede borrar su propia ubicación al desconectarse.
       allow delete: if isOwner(uid);
+    }
+
+    // AI-assisted: see docs/AI_LOG.md #28
+    // Solicitud abierta: pendiente y sin conductor asignado.
+    function tripRequestOpen(tripId) {
+      let tripPath = /databases/$(database)/documents/trips/$(tripId);
+      return exists(tripPath)
+        && get(tripPath).data.get('status', null) == 'pending'
+        && get(tripPath).data.get('driverId', null) == null;
+    }
+
+    // Ofertas de solicitudes por conductor. La oferta registra con la hora
+    // del servidor cuándo recibió el conductor la solicitud; el plazo de
+    // 15 s se cuenta desde offeredAt y no puede reiniciarse (no se permite
+    // recrear ni modificar offeredAt). El rechazo solo afecta a ese
+    // conductor; el vencimiento se verifica con request.time.
+    match /drivers/{uid}/tripOffers/{tripId} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'tripId', 'status', 'offeredAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'tripId', 'status', 'offeredAt'
+        ])
+        && request.resource.data.tripId == tripId
+        && request.resource.data.status == 'offered'
+        && request.resource.data.offeredAt == request.time
+        && tripRequestOpen(tripId)
+        && driverCanAcceptTrip(uid);
+
+      allow update: if isOwner(uid)
+        && resource.data.get('status', null) == 'offered'
+        && request.resource.data.get('status', null) == 'rejected'
+        && request.resource.data.get('reason', null) in ['manual', 'expired']
+        && request.resource.data.get('respondedAt', null) == request.time
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly(['status', 'reason', 'respondedAt'])
+        && (
+          request.resource.data.reason == 'manual'
+          || request.time > resource.data.offeredAt + duration.value(15, 's')
+        );
+
+      allow delete: if false;
     }
 
     match /drivers/{uid} {

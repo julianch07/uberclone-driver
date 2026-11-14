@@ -22,6 +22,7 @@ const {
   setDoc,
   updateDoc,
   serverTimestamp,
+  deleteDoc,
 } = require('firebase/firestore');
 
 // AI-assisted: see docs/AI_LOG.md #27
@@ -118,6 +119,18 @@ test('Reglas de seguridad de viajes', async (t) => {
       rules: fs.readFileSync('firestore.rules', 'utf8'),
     },
   });
+
+  // AI-assisted: see docs/AI_LOG.md #28
+  // Desde el módulo de solicitudes, aceptar exige una oferta vigente del
+  // conductor (drivers/{uid}/tripOffers/{tripId}).
+  async function seedOffer(driverId, tripId, overrides = {}) {
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'drivers', driverId, 'tripOffers', tripId),
+        { tripId, status: 'offered', offeredAt: new Date(), ...overrides }
+      );
+    });
+  }
 
   try {
     await environment.clearFirestore();
@@ -363,6 +376,8 @@ test('Reglas de seguridad de viajes', async (t) => {
         );
       });
 
+      await seedOffer('driver-legacy-trip', 'trip-without-driver-field');
+
       const context = environment.authenticatedContext('driver-legacy-trip');
       const ref = doc(context.firestore(), 'trips', 'trip-without-driver-field');
 
@@ -384,6 +399,8 @@ test('Reglas de seguridad de viajes', async (t) => {
           validTrip()
         );
       });
+
+      await seedOffer('driver-impersonator', 'trip-impersonation');
 
       const context = environment.authenticatedContext('driver-impersonator');
       const ref = doc(context.firestore(), 'trips', 'trip-impersonation');
@@ -423,6 +440,8 @@ test('Reglas de seguridad de viajes', async (t) => {
           );
         });
 
+        await seedOffer('driver-malformed', id);
+
         const context = environment.authenticatedContext('driver-malformed');
 
         await assertFails(
@@ -444,6 +463,9 @@ test('Reglas de seguridad de viajes', async (t) => {
           validTrip()
         );
       });
+
+      await seedOffer('driver-race-a', 'trip-race');
+      await seedOffer('driver-race-b', 'trip-race');
 
       async function attemptAcceptance(driverId) {
         const context = environment.authenticatedContext(driverId);
@@ -527,6 +549,8 @@ test('Reglas de seguridad de viajes', async (t) => {
         );
       });
 
+      await seedOffer('driver-1', 'trip-3');
+
       const context = environment.authenticatedContext('driver-1');
       const ref = doc(context.firestore(), 'trips', 'trip-3');
 
@@ -547,6 +571,8 @@ test('Reglas de seguridad de viajes', async (t) => {
           validTrip()
         );
       });
+
+      await seedOffer('driver-approved', 'trip-approved');
 
       const context = environment.authenticatedContext('driver-approved');
       const ref = doc(context.firestore(), 'trips', 'trip-approved');
@@ -616,6 +642,8 @@ test('Reglas de seguridad de viajes', async (t) => {
             );
           });
 
+          await seedOffer(id, tripId);
+
           const context = environment.authenticatedContext(id);
           const ref = doc(context.firestore(), 'trips', tripId);
 
@@ -642,6 +670,8 @@ test('Reglas de seguridad de viajes', async (t) => {
         );
       });
 
+      await seedOffer('driver-second', 'trip-assigned');
+
       const context = environment.authenticatedContext('driver-second');
       const ref = doc(context.firestore(), 'trips', 'trip-assigned');
 
@@ -664,6 +694,8 @@ test('Reglas de seguridad de viajes', async (t) => {
           validTrip()
         );
       });
+
+      await seedOffer('driver-offline', 'trip-offline');
 
       const context = environment.authenticatedContext('driver-offline');
       const ref = doc(context.firestore(), 'trips', 'trip-offline');
@@ -696,6 +728,8 @@ test('Reglas de seguridad de viajes', async (t) => {
         );
       });
 
+      await seedOffer('driver-expired-license', 'trip-expired-license');
+
       const context = environment.authenticatedContext('driver-expired-license');
       const ref = doc(context.firestore(), 'trips', 'trip-expired-license');
 
@@ -727,6 +761,8 @@ test('Reglas de seguridad de viajes', async (t) => {
         );
       });
 
+      await seedOffer('driver-expired-soat', 'trip-expired-soat');
+
       const context = environment.authenticatedContext('driver-expired-soat');
       const ref = doc(context.firestore(), 'trips', 'trip-expired-soat');
 
@@ -748,6 +784,8 @@ test('Reglas de seguridad de viajes', async (t) => {
         );
       });
 
+      await seedOffer('driver-fare', 'trip-fare');
+
       const context = environment.authenticatedContext('driver-fare');
       const ref = doc(context.firestore(), 'trips', 'trip-fare');
 
@@ -762,10 +800,22 @@ test('Reglas de seguridad de viajes', async (t) => {
 
 
     // AI-assisted: see docs/AI_LOG.md #17
+    // AI-assisted: see docs/AI_LOG.md #28
+    // "Pasajero a bordo" exige haber llegado al origen; ya no se permite
+    // pasar directamente de accepted a in_progress.
     await t.test('Permite iniciar un viaje al conductor asignado', async () => {
       await environment.withSecurityRulesDisabled(async (context) => {
         await setDoc(
           doc(context.firestore(), 'trips', 'trip-start'),
+          validTrip({
+            status: 'driver_arriving',
+            driverId: 'driver-lifecycle',
+            arrivingAt: new Date(),
+            arrivedAt: new Date(),
+          })
+        );
+        await setDoc(
+          doc(context.firestore(), 'trips', 'trip-start-skip'),
           validTrip({
             status: 'accepted',
             driverId: 'driver-lifecycle',
@@ -775,6 +825,13 @@ test('Reglas de seguridad de viajes', async (t) => {
 
       const context = environment.authenticatedContext('driver-lifecycle');
       const ref = doc(context.firestore(), 'trips', 'trip-start');
+
+      await assertFails(
+        updateDoc(doc(context.firestore(), 'trips', 'trip-start-skip'), {
+          status: 'in_progress',
+          startedAt: serverTimestamp(),
+        })
+      );
 
       await assertSucceeds(
         updateDoc(ref, {
@@ -858,9 +915,11 @@ test('Reglas de seguridad de viajes', async (t) => {
       await environment.withSecurityRulesDisabled(async (context) => {
         await setDoc(
           doc(context.firestore(), 'trips', 'trip-other-driver'),
+          // AI-assisted: see docs/AI_LOG.md #28
           validTrip({
-            status: 'accepted',
+            status: 'driver_arriving',
             driverId: 'driver-owner',
+            arrivedAt: new Date(),
           })
         );
       });
@@ -902,9 +961,11 @@ test('Reglas de seguridad de viajes', async (t) => {
       await environment.withSecurityRulesDisabled(async (context) => {
         await setDoc(
           doc(context.firestore(), 'trips', 'trip-start-fare'),
+          // AI-assisted: see docs/AI_LOG.md #28
           validTrip({
-            status: 'accepted',
+            status: 'driver_arriving',
             driverId: 'driver-lifecycle',
+            arrivedAt: new Date(),
           })
         );
       });
@@ -1122,6 +1183,338 @@ test('Reglas de seguridad de viajes', async (t) => {
           fareSource: 'estimated',
         }))
       );
+    });
+
+    // AI-assisted: see docs/AI_LOG.md #28
+    // --- Módulo de solicitudes y ciclo completo del viaje ---------------
+
+    const SECONDS = 1000;
+
+    async function seedPendingTrip(tripId, overrides = {}) {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), 'trips', tripId), validTrip(overrides));
+      });
+    }
+
+    function offerRef(driverId, tripId, asDriver = driverId) {
+      return doc(
+        environment.authenticatedContext(asDriver).firestore(),
+        'drivers',
+        driverId,
+        'tripOffers',
+        tripId
+      );
+    }
+
+    function acceptAs(driverId, tripId) {
+      return updateDoc(
+        doc(environment.authenticatedContext(driverId).firestore(), 'trips', tripId),
+        { status: 'accepted', driverId }
+      );
+    }
+
+    await t.test('Ofertas: el conductor habilitado registra la suya con la hora del servidor', async () => {
+      await seedDriver(environment, 'driver-offer');
+      await seedPendingTrip('trip-offer-ok');
+
+      await assertSucceeds(
+        setDoc(offerRef('driver-offer', 'trip-offer-ok'), {
+          tripId: 'trip-offer-ok',
+          status: 'offered',
+          offeredAt: serverTimestamp(),
+        })
+      );
+
+      // No se puede recrear ni cambiar offeredAt para reiniciar el plazo.
+      await assertFails(
+        setDoc(offerRef('driver-offer', 'trip-offer-ok'), {
+          tripId: 'trip-offer-ok',
+          status: 'offered',
+          offeredAt: serverTimestamp(),
+        })
+      );
+      await assertFails(
+        updateDoc(offerRef('driver-offer', 'trip-offer-ok'), {
+          offeredAt: serverTimestamp(),
+        })
+      );
+      await assertFails(deleteDoc(offerRef('driver-offer', 'trip-offer-ok')));
+    });
+
+    for (const scenario of [
+      { name: 'con hora del cliente', data: () => ({ offeredAt: new Date() }) },
+      { name: 'con campos adicionales', data: () => ({ estimatedFare: 1 }) },
+      { name: 'ya rechazada', data: () => ({ status: 'rejected' }) },
+      { name: 'con otro tripId', data: () => ({ tripId: 'otro-viaje' }) },
+    ]) {
+      await t.test(`Ofertas: impide crearla ${scenario.name}`, async () => {
+        const tripId = `trip-offer-bad-${scenario.name.replaceAll(' ', '-')}`;
+        await seedDriver(environment, 'driver-offer-bad');
+        await seedPendingTrip(tripId);
+
+        await assertFails(
+          setDoc(offerRef('driver-offer-bad', tripId), {
+            tripId,
+            status: 'offered',
+            offeredAt: serverTimestamp(),
+            ...scenario.data(),
+          })
+        );
+      });
+    }
+
+    await t.test('Ofertas: impide crearlas para otros conductores o solicitudes no abiertas', async () => {
+      await seedDriver(environment, 'driver-offer-owner');
+      await seedDriver(environment, 'driver-offer-intruder');
+      await seedDriver(environment, 'driver-offer-offline', { isOnline: false });
+      await seedPendingTrip('trip-offer-open');
+      await seedPendingTrip('trip-offer-taken', { status: 'accepted', driverId: 'x' });
+
+      const offer = (tripId) => ({ tripId, status: 'offered', offeredAt: serverTimestamp() });
+
+      // En la subcolección de otro conductor.
+      await assertFails(
+        setDoc(
+          offerRef('driver-offer-owner', 'trip-offer-open', 'driver-offer-intruder'),
+          offer('trip-offer-open')
+        )
+      );
+      // Solicitud ya asignada o inexistente.
+      await assertFails(setDoc(offerRef('driver-offer-owner', 'trip-offer-taken'), offer('trip-offer-taken')));
+      await assertFails(setDoc(offerRef('driver-offer-owner', 'trip-ghost'), offer('trip-ghost')));
+      // Conductor desconectado.
+      await assertFails(
+        setDoc(offerRef('driver-offer-offline', 'trip-offer-open'), offer('trip-offer-open'))
+      );
+      // Lectura de ofertas ajenas.
+      await assertFails(
+        getDocs(collection(
+          environment.authenticatedContext('driver-offer-intruder').firestore(),
+          'drivers', 'driver-offer-owner', 'tripOffers'
+        ))
+      );
+    });
+
+    await t.test('Rechazo manual: solo propio, una vez y sin reabrir la oferta', async () => {
+      await seedDriver(environment, 'driver-reject');
+      await seedPendingTrip('trip-reject');
+      await seedOffer('driver-reject', 'trip-reject');
+
+      const reject = (reason, asDriver = 'driver-reject') =>
+        updateDoc(offerRef('driver-reject', 'trip-reject', asDriver), {
+          status: 'rejected',
+          reason,
+          respondedAt: serverTimestamp(),
+        });
+
+      await assertFails(reject('manual', 'driver-offer-intruder'));
+      await assertFails(reject('sin-motivo'));
+      await assertSucceeds(reject('manual'));
+      await assertFails(reject('manual'));
+      await assertFails(
+        updateDoc(offerRef('driver-reject', 'trip-reject'), { status: 'offered' })
+      );
+
+      // El rechazo no cancela la solicitud para los demás conductores.
+      await environment.withSecurityRulesDisabled(async (context) => {
+        const trip = (await getDoc(doc(context.firestore(), 'trips', 'trip-reject'))).data();
+        assert.equal(trip.status, 'pending');
+        assert.equal(trip.driverId, null);
+      });
+
+      // Y quien la rechazó ya no puede aceptarla.
+      await assertFails(acceptAs('driver-reject', 'trip-reject'));
+    });
+
+    await t.test('Rechazo automático: solo después de vencer el plazo', async () => {
+      await seedDriver(environment, 'driver-expire');
+      await seedPendingTrip('trip-expire-fresh');
+      await seedPendingTrip('trip-expire-old');
+      await seedOffer('driver-expire', 'trip-expire-fresh');
+      await seedOffer('driver-expire', 'trip-expire-old', {
+        offeredAt: new Date(Date.now() - 20 * SECONDS),
+      });
+
+      const expire = (tripId) =>
+        updateDoc(offerRef('driver-expire', tripId), {
+          status: 'rejected',
+          reason: 'expired',
+          respondedAt: serverTimestamp(),
+        });
+
+      await assertFails(expire('trip-expire-fresh'));
+      await assertSucceeds(expire('trip-expire-old'));
+    });
+
+    await t.test('Aceptación: exige una oferta propia, vigente y no rechazada', async () => {
+      await seedDriver(environment, 'driver-accept-a');
+      await seedDriver(environment, 'driver-accept-b');
+
+      // Sin oferta.
+      await seedPendingTrip('trip-accept-no-offer');
+      await assertFails(acceptAs('driver-accept-a', 'trip-accept-no-offer'));
+
+      // Oferta vencida (hace 16 s).
+      await seedPendingTrip('trip-accept-expired');
+      await seedOffer('driver-accept-a', 'trip-accept-expired', {
+        offeredAt: new Date(Date.now() - 16 * SECONDS),
+      });
+      await assertFails(acceptAs('driver-accept-a', 'trip-accept-expired'));
+
+      // Oferta rechazada.
+      await seedPendingTrip('trip-accept-rejected');
+      await seedOffer('driver-accept-a', 'trip-accept-rejected', { status: 'rejected' });
+      await assertFails(acceptAs('driver-accept-a', 'trip-accept-rejected'));
+
+      // offeredAt que no es un timestamp.
+      await seedPendingTrip('trip-accept-bad-time');
+      await seedOffer('driver-accept-a', 'trip-accept-bad-time', { offeredAt: 'ahora' });
+      await assertFails(acceptAs('driver-accept-a', 'trip-accept-bad-time'));
+
+      // La oferta de otro conductor no sirve.
+      await seedPendingTrip('trip-accept-other-offer');
+      await seedOffer('driver-accept-a', 'trip-accept-other-offer');
+      await assertFails(acceptAs('driver-accept-b', 'trip-accept-other-offer'));
+
+      // Oferta vigente: se acepta.
+      await assertSucceeds(acceptAs('driver-accept-a', 'trip-accept-other-offer'));
+    });
+
+    // Ciclo completo con escrituras del conductor asignado.
+    async function seedAssignedTrip(tripId, overrides = {}) {
+      await seedPendingTrip(tripId, {
+        status: 'accepted',
+        driverId: 'driver-cycle-rules',
+        distanceKm: 8.5,
+        durationMin: 22,
+        category: 'xl',
+        estimatedFare: 26900,
+        paymentMethod: 'cash',
+        tip: 1000,
+        ...overrides,
+      });
+
+      return doc(
+        environment.authenticatedContext('driver-cycle-rules').firestore(),
+        'trips',
+        tripId
+      );
+    }
+
+    await t.test('Ciclo: en camino → llegada → pasajero a bordo → finalizado', async () => {
+      const ref = await seedAssignedTrip('trip-cycle-full');
+
+      await assertSucceeds(updateDoc(ref, { status: 'driver_arriving', arrivingAt: serverTimestamp() }));
+      // Sin llegar al origen no puede iniciar.
+      await assertFails(updateDoc(ref, { status: 'in_progress', startedAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(ref, { arrivedAt: serverTimestamp() }));
+      // La llegada se registra una sola vez.
+      await assertFails(updateDoc(ref, { arrivedAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(ref, { status: 'in_progress', startedAt: serverTimestamp() }));
+      // Ya no se puede cancelar con el pasajero a bordo.
+      await assertFails(updateDoc(ref, { status: 'cancelled', cancelledAt: serverTimestamp() }));
+
+      const data = (await getDoc(ref)).data();
+      await assertSucceeds(
+        updateDoc(ref, {
+          status: 'completed',
+          completedAt: serverTimestamp(),
+          ...buildCompletionBreakdown(data),
+        })
+      );
+
+      const completed = (await getDoc(ref)).data();
+      assert.equal(completed.fare, 26900);
+      assert.equal(completed.driverEarnings, 22520);
+      assert.ok(completed.arrivingAt && completed.arrivedAt && completed.startedAt);
+
+      // Nada se modifica después de finalizar, tampoco el estado de pago.
+      await assertFails(updateDoc(ref, { status: 'paid' }));
+      await assertFails(updateDoc(ref, { paymentStatus: 'approved' }));
+    });
+
+    for (const scenario of [
+      { name: 'con hora del cliente', from: {}, change: { status: 'driver_arriving', arrivingAt: new Date() } },
+      { name: 'saltando a finalizado', from: {}, change: { status: 'completed', completedAt: serverTimestamp() } },
+      { name: 'llegada sin estar en camino', from: {}, change: { arrivedAt: serverTimestamp() } },
+      { name: 'llegada cambiando el estado', from: { status: 'driver_arriving' }, change: { status: 'in_progress', arrivedAt: serverTimestamp() } },
+      { name: 'finalizado desde en camino', from: { status: 'driver_arriving', arrivedAt: new Date() }, change: { status: 'completed', completedAt: serverTimestamp() } },
+      { name: 'marcado como pagado', from: { status: 'in_progress' }, change: { status: 'paid' } },
+      { name: 'estado rechazado', from: {}, change: { status: 'rejected' } },
+      { name: 'devuelto a pendiente', from: {}, change: { status: 'pending', driverId: null } },
+    ]) {
+      await t.test(`Ciclo: impide una transición ${scenario.name}`, async () => {
+        const ref = await seedAssignedTrip(
+          `trip-cycle-bad-${scenario.name.replaceAll(' ', '-')}`,
+          scenario.from
+        );
+
+        await assertFails(updateDoc(ref, scenario.change));
+      });
+    }
+
+    for (const [field, value] of [
+      ['distanceKm', 1],
+      ['durationMin', 1],
+      ['category', 'economy'],
+      ['tip', 50000],
+      ['estimatedFare', 99000],
+      ['paymentMethod', 'mercadopago'],
+      ['paymentStatus', 'approved'],
+      ['driverId', 'otro-conductor'],
+    ]) {
+      await t.test(`Ciclo: impide alterar ${field} al avanzar el viaje`, async () => {
+        const ref = await seedAssignedTrip(`trip-cycle-protected-${field}`);
+
+        await assertFails(
+          updateDoc(ref, {
+            status: 'driver_arriving',
+            arrivingAt: serverTimestamp(),
+            [field]: value,
+          })
+        );
+      });
+    }
+
+    await t.test('Ciclo: otro conductor no puede avanzar ni cancelar el viaje', async () => {
+      await seedAssignedTrip('trip-cycle-foreign');
+      const foreign = doc(
+        environment.authenticatedContext('driver-cycle-intruder').firestore(),
+        'trips',
+        'trip-cycle-foreign'
+      );
+
+      await assertFails(updateDoc(foreign, { status: 'driver_arriving', arrivingAt: serverTimestamp() }));
+      await assertFails(updateDoc(foreign, { status: 'cancelled', cancelledAt: serverTimestamp() }));
+    });
+
+    await t.test('Ciclo: se puede cancelar en camino al origen', async () => {
+      const ref = await seedAssignedTrip('trip-cycle-cancel', {
+        status: 'driver_arriving',
+        arrivedAt: new Date(),
+      });
+
+      await assertSucceeds(updateDoc(ref, { status: 'cancelled', cancelledAt: serverTimestamp() }));
+    });
+
+    await t.test('Recuperación: la consulta de viajes activos incluye driver_arriving', async () => {
+      // Conductor exclusivo: las pruebas anteriores dejan otros viajes
+      // activos de driver-cycle-rules y la consulta limita a 2 resultados.
+      await seedAssignedTrip('trip-cycle-recover', {
+        status: 'driver_arriving',
+        driverId: 'driver-recover-only',
+      });
+
+      const snapshot = await assertSucceeds(
+        getDocs(query(
+          collection(environment.authenticatedContext('driver-recover-only').firestore(), 'trips'),
+          where('driverId', '==', 'driver-recover-only'),
+          where('status', 'in', ['accepted', 'driver_arriving', 'in_progress']),
+          limit(2)
+        ))
+      );
+
+      assert.ok(snapshot.docs.some((item) => item.id === 'trip-cycle-recover'));
     });
 
   } finally {

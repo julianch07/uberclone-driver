@@ -69,7 +69,8 @@ test('Consulta viajes activos solo del conductor y con límite 2', async () => {
   });
   assert.deepEqual(calls.filter(x => x[0] === 'where'), [
     ['where', 'driverId', '==', 'driver-1'],
-    ['where', 'status', 'in', ['accepted', 'in_progress']],
+    // AI-assisted: see docs/AI_LOG.md #28
+    ['where', 'status', 'in', ['accepted', 'driver_arriving', 'in_progress']],
   ]);
   assert.ok(calls.some(x => x[0] === 'limit' && x[1] === 2));
 });

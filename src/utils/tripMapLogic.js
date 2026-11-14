@@ -1,4 +1,6 @@
 // AI-assisted: see docs/AI_LOG.md #21
+// AI-assisted: see docs/AI_LOG.md #28
+import { ACTIVE_TRIP_STATUSES, TRIP_STATUS } from './tripLogic';
 
 function isValidCoordinate(position) {
   return (
@@ -25,10 +27,7 @@ function normalizeCoordinate(position) {
 }
 
 export function getTripMapConfiguration(trip, driverPosition) {
-  if (
-    !trip ||
-    !['accepted', 'in_progress'].includes(trip.status)
-  ) {
+  if (!trip || !ACTIVE_TRIP_STATUSES.includes(trip.status)) {
     return null;
   }
 
@@ -40,7 +39,9 @@ export function getTripMapConfiguration(trip, driverPosition) {
     return null;
   }
 
-  const isAccepted = trip.status === 'accepted';
+  // Hasta que el pasajero sube (in_progress), la ruta va al punto de
+  // recogida: estados accepted y driver_arriving.
+  const isAccepted = trip.status !== TRIP_STATUS.IN_PROGRESS;
 
   return {
     status: trip.status,

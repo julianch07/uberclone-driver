@@ -1,11 +1,11 @@
-
 // AI-assisted: see docs/AI_LOG.md #15
 // AI-assisted: see docs/AI_LOG.md #16
 // AI-assisted: see docs/AI_LOG.md #17
 // AI-assisted: see docs/AI_LOG.md #18
 // AI-assisted: see docs/AI_LOG.md #20
+// AI-assisted: see docs/AI_LOG.md #28
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -15,18 +15,81 @@ import {
 } from 'react-native';
 
 import { useDriverContext } from '../../context/DriverContext';
+import useTripRequests, {
+  getTripRequestErrorMessage,
+} from '../../hooks/useTripRequests';
+import { formatCurrency } from '../../utils/fareLogic';
+import { getActiveTripStage, TRIP_STAGE } from '../../utils/tripLogic';
 import {
-  getTripRequestRemainingSeconds,
-  isTripRequestExpired,
-} from '../../utils/tripRequestTimer';
+  getCategoryLabel,
+  getPaymentMethodLabel,
+  getTripEstimate,
+} from '../../utils/tripRequestLogic';
+import { OFFER_TIMING_STATE } from '../../utils/tripRequestTimer';
 
 import {
-  acceptTrip,
+  markDriverArriving,
+  markArrivedAtPickup,
   startTrip,
   completeTrip,
   cancelTrip,
-  subscribeToPendingTrips,
 } from '../../services/tripService';
+
+// AI-assisted: see docs/AI_LOG.md #28
+// Etapas del viaje activo: texto de estado y acción principal.
+const STAGE_INFO = {
+  [TRIP_STAGE.ACCEPTED]: {
+    label: 'Aceptado',
+    action: { key: 'arriving', label: 'Voy en camino', busy: 'Actualizando...', run: markDriverArriving },
+    canCancel: true,
+  },
+  [TRIP_STAGE.TO_PICKUP]: {
+    label: 'En camino al punto de recogida',
+    action: { key: 'arrived', label: 'Llegué al origen', busy: 'Registrando llegada...', run: markArrivedAtPickup },
+    canCancel: true,
+  },
+  [TRIP_STAGE.AT_PICKUP]: {
+    label: 'Esperando al pasajero en el origen',
+    action: { key: 'start', label: 'Pasajero a bordo', busy: 'Iniciando...', run: startTrip },
+    canCancel: true,
+  },
+  [TRIP_STAGE.TO_DESTINATION]: {
+    label: 'En curso hacia el destino',
+    action: { key: 'complete', label: 'Finalizar viaje', busy: 'Finalizando...', run: completeTrip },
+    canCancel: false,
+  },
+};
+
+function EstimateRows({ estimate, prefix }) {
+  if (!estimate) {
+    return (
+      <Text style={styles.muted}>Tarifa por confirmar.</Text>
+    );
+  }
+
+  return (
+    <View style={styles.estimate}>
+      <View style={styles.estimateRow}>
+        <Text style={styles.estimateLabel}>{prefix} tarifa</Text>
+        <Text style={styles.estimateValue}>{formatCurrency(estimate.fare)}</Text>
+      </View>
+      <View style={styles.estimateRow}>
+        <Text style={styles.estimateLabel}>Comisión (20 %)</Text>
+        <Text style={styles.estimateValue}>- {formatCurrency(estimate.commission)}</Text>
+      </View>
+      {estimate.tip > 0 ? (
+        <View style={styles.estimateRow}>
+          <Text style={styles.estimateLabel}>Propina</Text>
+          <Text style={styles.estimateValue}>+ {formatCurrency(estimate.tip)}</Text>
+        </View>
+      ) : null}
+      <View style={styles.estimateRow}>
+        <Text style={styles.estimateLabelStrong}>Tu ganancia neta</Text>
+        <Text style={styles.fare}>{formatCurrency(estimate.driverEarnings)}</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function TripRequests({ uid, enabled }) {
   const {
@@ -34,7 +97,6 @@ export default function TripRequests({ uid, enabled }) {
     activeTripId,
     activeTripLoading,
     activeTripError,
-    rememberAcceptedTrip,
   } = useDriverContext();
 
   const hasActiveTrip = Boolean(activeTripId);
@@ -44,156 +106,63 @@ export default function TripRequests({ uid, enabled }) {
   const tripRecoveryBlocked =
     activeTripLoading || Boolean(activeTripError);
 
-  const [trips, setTrips] = useState([]);
-  const [timerNow, setTimerNow] = useState(() => Date.now());
-  const firstSeenRef = useRef(new Map());
-  const [loading, setLoading] = useState(false);
-  const [acceptingId, setAcceptingId] = useState(null);
+  // AI-assisted: see docs/AI_LOG.md #28
+  const {
+    requests,
+    loading,
+    error,
+    actionError,
+    message,
+    processing,
+    acceptRequest,
+    rejectRequest,
+  } = useTripRequests({
+    uid,
+    enabled: enabled && !hasActiveTrip && !tripRecoveryBlocked,
+  });
+
   const [tripAction, setTripAction] = useState(null);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [tripActionError, setTripActionError] = useState('');
 
-  // Prevent repeated taps before React updates the component.
-  const acceptingRef = useRef(false);
-
-  // AI-assisted: see docs/AI_LOG.md #20
-  useEffect(() => {
-    if (!enabled || hasActiveTrip || tripRecoveryBlocked) {
-      return undefined;
-    }
-
-    const interval = setInterval(() => {
-      setTimerNow(Date.now());
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [enabled, hasActiveTrip, tripRecoveryBlocked]);
-
-  useEffect(() => {
-    if (!enabled || hasActiveTrip || tripRecoveryBlocked) {
-      setTrips([]);
-      setLoading(false);
-      setError('');
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    setLoading(true);
-    setError('');
-
-    const unsubscribe = subscribeToPendingTrips(
-      (pendingTrips) => {
-        if (cancelled) return;
-
-        const now = Date.now();
-
-        for (const trip of pendingTrips) {
-          if (!firstSeenRef.current.has(trip.id)) {
-            firstSeenRef.current.set(trip.id, now);
-          }
-        }
-
-        setTimerNow(now);
-        setTrips(pendingTrips);
-        setLoading(false);
-      },
-      () => {
-        if (cancelled) return;
-
-        setError(
-          'No se pudieron consultar las solicitudes de viajes.'
-        );
-        setLoading(false);
+  const handleTripAction = useCallback(
+    async (action, operation) => {
+      if (
+        tripAction ||
+        !activeTrip ||
+        !activeTripId ||
+        activeTripLoading ||
+        !uid
+      ) {
+        return;
       }
-    );
 
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [enabled, hasActiveTrip, tripRecoveryBlocked]);
+      setTripAction(action);
+      setTripActionError('');
 
-  const handleAccept = async (tripId) => {
-    if (
-      !enabled ||
-      !uid ||
-      !tripId ||
-      acceptingRef.current ||
-      hasActiveTrip ||
-      tripRecoveryBlocked ||
-      isTripRequestExpired(firstSeenRef.current.get(tripId))
-    ) {
-      return;
-    }
+      try {
+        await operation(activeTripId, uid);
 
-    acceptingRef.current = true;
-
-    setAcceptingId(tripId);
-    setError('');
-    setMessage('');
-
-    try {
-      await acceptTrip(tripId, uid);
-
-      const saved = await rememberAcceptedTrip(tripId);
-
-      setMessage(
-        saved
-          ? '¡Viaje aceptado correctamente!'
-          : 'Viaje aceptado, pero no se pudo guardar localmente.'
-      );
-    } catch (acceptError) {
-      setError(
-        acceptError?.message ||
-          'No fue posible aceptar este viaje.'
-      );
-    } finally {
-      acceptingRef.current = false;
-      setAcceptingId(null);
-    }
-  };
-
-  const handleTripAction = async (action, operation) => {
-    if (
-      tripAction ||
-      !activeTrip ||
-      !activeTripId ||
-      activeTripLoading ||
-      !uid
-    ) {
-      return;
-    }
-
-    setTripAction(action);
-    setError('');
-    setMessage('');
-
-    try {
-      await operation(activeTripId, uid);
-
-      // Firestore onSnapshot synchronizes the trip status.
-    } catch (actionError) {
-      setError(
-        actionError?.message ||
-          'No fue posible actualizar el estado del viaje.'
-      );
-    } finally {
-      setTripAction(null);
-    }
-  };
-
-  // AI-assisted: see docs/AI_LOG.md #20
-  const visibleTrips = trips.filter(
-    (trip) =>
-      !isTripRequestExpired(
-        firstSeenRef.current.get(trip.id),
-        timerNow
-      )
+        // Firestore onSnapshot synchronizes the trip status.
+      } catch (operationError) {
+        setTripActionError(
+          getTripRequestErrorMessage(
+            operationError,
+            'No fue posible actualizar el estado del viaje.'
+          )
+        );
+      } finally {
+        setTripAction(null);
+      }
+    },
+    [tripAction, activeTrip, activeTripId, activeTripLoading, uid]
   );
 
   // Show the assigned trip or its recovery state.
   if (hasActiveTrip || activeTripLoading) {
+    const stage = getActiveTripStage(activeTrip);
+    const stageInfo = stage ? STAGE_INFO[stage] : null;
+    const busy = tripAction !== null || activeTripLoading;
+
     return (
       <View style={styles.card}>
         <Text style={styles.title}>
@@ -214,119 +183,72 @@ export default function TripRequests({ uid, enabled }) {
         {activeTrip ? (
           <>
             <Text style={styles.label}>ESTADO</Text>
-
             <Text style={styles.value}>
-              {activeTrip.status === 'accepted'
-                ? 'Aceptado'
-                : activeTrip.status === 'in_progress'
-                  ? 'En curso'
-                  : activeTrip.status}
+              {stageInfo ? stageInfo.label : activeTrip.status}
             </Text>
 
             <Text style={styles.label}>ORIGEN</Text>
-
             <Text style={styles.value}>
-              {activeTrip.pickup?.address ||
-                'No disponible'}
+              {activeTrip.pickup?.address || 'No disponible'}
             </Text>
 
             <Text style={styles.label}>DESTINO</Text>
-
             <Text style={styles.value}>
-              {activeTrip.destination?.address ||
-                'No disponible'}
+              {activeTrip.destination?.address || 'No disponible'}
             </Text>
 
-            <Text style={styles.label}>
-              TARIFA ESTIMADA
+            <Text style={styles.label}>CATEGORÍA · PAGO</Text>
+            <Text style={styles.value}>
+              {getCategoryLabel(activeTrip.category)} ·{' '}
+              {getPaymentMethodLabel(activeTrip.paymentMethod)}
             </Text>
 
-            <Text style={styles.fare}>
-              {typeof activeTrip.estimatedFare === 'number'
-                ? `$${activeTrip.estimatedFare.toLocaleString('es-CO')}`
-                : 'Por confirmar'}
-            </Text>
+            <Text style={styles.label}>TARIFA ESTIMADA</Text>
+            <EstimateRows
+              estimate={getTripEstimate(activeTrip)}
+              prefix="Tarifa"
+            />
 
-            {activeTrip.status === 'accepted' ? (
-              <>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  style={[
-                    styles.button,
-                    (tripAction !== null ||
-                      activeTripLoading) &&
-                      styles.disabled,
-                  ]}
-                  disabled={
-                    tripAction !== null ||
-                    activeTripLoading
-                  }
-                  onPress={() =>
-                    handleTripAction('start', startTrip)
-                  }
-                >
-                  <Text style={styles.buttonText}>
-                    {tripAction === 'start'
-                      ? 'Iniciando...'
-                      : 'Iniciar viaje'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  style={[
-                    styles.button,
-                    styles.cancelButton,
-                    (tripAction !== null ||
-                      activeTripLoading) &&
-                      styles.disabled,
-                  ]}
-                  disabled={
-                    tripAction !== null ||
-                    activeTripLoading
-                  }
-                  onPress={() =>
-                    handleTripAction('cancel', cancelTrip)
-                  }
-                >
-                  <Text style={styles.buttonText}>
-                    {tripAction === 'cancel'
-                      ? 'Cancelando...'
-                      : 'Cancelar viaje'}
-                  </Text>
-                </TouchableOpacity>
-              </>
+            {stageInfo ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[styles.button, busy && styles.disabled]}
+                disabled={busy}
+                onPress={() =>
+                  handleTripAction(stageInfo.action.key, stageInfo.action.run)
+                }
+              >
+                <Text style={styles.buttonText}>
+                  {tripAction === stageInfo.action.key
+                    ? stageInfo.action.busy
+                    : stageInfo.action.label}
+                </Text>
+              </TouchableOpacity>
             ) : null}
 
-            {activeTrip.status === 'in_progress' ? (
+            {stageInfo?.canCancel ? (
               <TouchableOpacity
                 accessibilityRole="button"
                 style={[
                   styles.button,
-                  (tripAction !== null ||
-                    activeTripLoading) &&
-                    styles.disabled,
+                  styles.cancelButton,
+                  busy && styles.disabled,
                 ]}
-                disabled={
-                  tripAction !== null ||
-                  activeTripLoading
-                }
-                onPress={() =>
-                  handleTripAction('complete', completeTrip)
-                }
+                disabled={busy}
+                onPress={() => handleTripAction('cancel', cancelTrip)}
               >
                 <Text style={styles.buttonText}>
-                  {tripAction === 'complete'
-                    ? 'Finalizando...'
-                    : 'Finalizar viaje'}
+                  {tripAction === 'cancel'
+                    ? 'Cancelando...'
+                    : 'Cancelar viaje'}
                 </Text>
               </TouchableOpacity>
             ) : null}
           </>
         ) : null}
 
-        {error ? (
-          <Text style={styles.error}>{error}</Text>
+        {tripActionError ? (
+          <Text style={styles.error}>{tripActionError}</Text>
         ) : null}
 
         {activeTripError ? (
@@ -393,11 +315,15 @@ export default function TripRequests({ uid, enabled }) {
         <Text style={styles.error}>{error}</Text>
       ) : null}
 
+      {actionError ? (
+        <Text style={styles.error}>{actionError}</Text>
+      ) : null}
+
       {message ? (
         <Text style={styles.success}>{message}</Text>
       ) : null}
 
-      {!loading && !error && visibleTrips.length === 0 ? (
+      {!loading && !error && requests.length === 0 ? (
         <View style={styles.card}>
           <Text style={styles.title}>
             Sin solicitudes por ahora
@@ -410,68 +336,95 @@ export default function TripRequests({ uid, enabled }) {
         </View>
       ) : null}
 
-      {visibleTrips.map((trip) => (
-        <View
-          key={trip.id}
-          style={styles.card}
-        >
-          <Text style={styles.label}>ORIGEN</Text>
+      {/* AI-assisted: see docs/AI_LOG.md #28 */}
+      {requests.map((request) => {
+        const isBusy = processing !== null;
+        const waiting =
+          request.timing.state === OFFER_TIMING_STATE.WAITING_SERVER;
 
-          <Text style={styles.value}>
-            {trip.pickup?.address ||
-              'Origen no disponible'}
-          </Text>
-
-          <Text style={styles.label}>DESTINO</Text>
-
-          <Text style={styles.value}>
-            {trip.destination?.address ||
-              'Destino no disponible'}
-          </Text>
-
-          <Text style={styles.label}>
-            TARIFA ESTIMADA
-          </Text>
-
-          <Text style={styles.fare}>
-            {typeof trip.estimatedFare === 'number'
-              ? `$${trip.estimatedFare.toLocaleString('es-CO')}`
-              : 'Por confirmar'}
-          </Text>
-
-          <Text style={styles.timer}>
-            Tiempo para aceptar: {getTripRequestRemainingSeconds(
-              firstSeenRef.current.get(trip.id),
-              timerNow
-            )} s
-          </Text>
-
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={[
-              styles.button,
-              (acceptingId !== null ||
-                tripRecoveryBlocked ||
-                hasActiveTrip ||
-                !enabled) &&
-                styles.disabled,
-            ]}
-            disabled={
-              acceptingId !== null ||
-              tripRecoveryBlocked ||
-              hasActiveTrip ||
-              !enabled
-            }
-            onPress={() => handleAccept(trip.id)}
+        return (
+          <View
+            key={request.id}
+            style={styles.card}
           >
-            <Text style={styles.buttonText}>
-              {acceptingId === trip.id
-                ? 'Aceptando...'
-                : 'Aceptar viaje'}
+            <Text style={styles.timer}>
+              {waiting
+                ? 'Preparando solicitud...'
+                : `Tiempo para responder: ${request.timing.remainingSeconds} s`}
             </Text>
-          </TouchableOpacity>
-        </View>
-      ))}
+
+            <Text style={styles.label}>ORIGEN</Text>
+            <Text style={styles.value}>{request.pickupAddress}</Text>
+
+            <Text style={styles.label}>DESTINO</Text>
+            <Text style={styles.value}>{request.destinationAddress}</Text>
+
+            <View style={styles.detailsRow}>
+              <View style={styles.detail}>
+                <Text style={styles.label}>DISTANCIA</Text>
+                <Text style={styles.value}>{request.distanceLabel}</Text>
+              </View>
+              <View style={styles.detail}>
+                <Text style={styles.label}>DURACIÓN</Text>
+                <Text style={styles.value}>{request.durationLabel}</Text>
+              </View>
+            </View>
+
+            <View style={styles.detailsRow}>
+              <View style={styles.detail}>
+                <Text style={styles.label}>CATEGORÍA</Text>
+                <Text style={styles.value}>{request.categoryLabel}</Text>
+              </View>
+              <View style={styles.detail}>
+                <Text style={styles.label}>PAGO</Text>
+                <Text style={styles.value}>{request.paymentMethodLabel}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.label}>ESTIMACIÓN</Text>
+            <EstimateRows estimate={request.estimate} prefix="Tarifa" />
+
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[
+                  styles.button,
+                  styles.rejectButton,
+                  styles.actionButton,
+                  (isBusy || waiting) && styles.disabled,
+                ]}
+                disabled={isBusy || waiting}
+                onPress={() => rejectRequest(request.id)}
+              >
+                <Text style={styles.rejectButtonText}>
+                  {processing?.tripId === request.id &&
+                  processing.action === 'reject'
+                    ? 'Rechazando...'
+                    : 'Rechazar'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[
+                  styles.button,
+                  styles.actionButton,
+                  (isBusy || !request.canAccept) && styles.disabled,
+                ]}
+                disabled={isBusy || !request.canAccept}
+                onPress={() => acceptRequest(request.id)}
+              >
+                <Text style={styles.buttonText}>
+                  {processing?.tripId === request.id &&
+                  processing.action === 'accept'
+                    ? 'Aceptando...'
+                    : 'Aceptar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -544,6 +497,63 @@ const styles = StyleSheet.create({
 
   disabled: {
     opacity: 0.45,
+  },
+
+  // AI-assisted: see docs/AI_LOG.md #28
+  rejectButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#B42318',
+  },
+
+  rejectButtonText: {
+    color: '#B42318',
+    fontWeight: '700',
+  },
+
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+
+  actionButton: {
+    flex: 1,
+  },
+
+  detailsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+
+  detail: {
+    flex: 1,
+  },
+
+  estimate: {
+    marginTop: 4,
+  },
+
+  estimateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+
+  estimateLabel: {
+    color: '#616B78',
+    fontSize: 14,
+  },
+
+  estimateLabelStrong: {
+    color: '#161B26',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  estimateValue: {
+    color: '#161B26',
+    fontSize: 14,
   },
 
   buttonText: {
