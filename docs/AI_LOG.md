@@ -1560,7 +1560,7 @@ No cambies firestore.rules, servicios de viajes, lógica de pagos ni dependencia
     - Cambiar las consultas para evitar índices.
     - Modificar `firestore.rules`, los servicios de viajes o la lógica de pagos.
 - **Archivos modificados:** `firestore.indexes.json`, `tests/trips.rules.test.cjs` y `docs/AI_LOG.md`.
-- **Commit:** Pendiente (lo registra el integrante).
+- **Commit:** 69bddc6 (fix: agregar indice de comisiones y prueba de regresion de viajes).
 - **Verificación:**
   - **`firestore.indexes.json`:** JSON válido, con 3 índices y sin duplicados.
   - **Suites:**
@@ -1576,12 +1576,62 @@ No cambies firestore.rules, servicios de viajes, lógica de pagos ni dependencia
   - Verificar en el proyecto real la consulta paginada de cobros pendientes.
 - **Aprendizaje:** El enlace `create_composite` que genera Firestore codifica la definición exacta del índice, por lo que puede decodificarse y declararse en el repositorio sin crearlo a mano en la consola. Cuando varias consultas se lanzan en paralelo con `Promise.all`, solo se ve el primer error, y los índices que faltan aparecen de uno en uno.
 
+### Entrada #32
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Declarar el índice compuesto que Firebase pidió para la agregación de totales del saldo del conductor, pendiente desde la entrada #31.
+- **Prompt (texto literal):**
+
+````text
+Estamos en UberClone Driver, rama main, actualizada y limpia tras el merge anterior.
+
+Firebase confirmó que falta un segundo índice compuesto para la agregación de totales de ledgerEntries. Enlace oficial:
+https://console.firebase.google.com/v1/r/project/uberclone-driver-8e0bf/firestore/indexes?create_composite=Clxwcm9qZWN0cy91YmVyY2xvbmUtZHJpdmVyLThlMGJmL2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9sZWRnZXJFbnRyaWVzL2luZGV4ZXMvXxABGggKBHR5cGUQARoOCgpjYXNoQW1vdW50EAEaDgoKY29tbWlzc2lvbhABGhIKDmRyaXZlckVhcm5pbmdzEAEaDAoIX19uYW1lX18QAQ
+
+Realiza únicamente estos cambios locales:
+1. Verifica los campos y orden del enlace oficial y añade el índice ledgerEntries (type ASC, cashAmount ASC, commission ASC, driverEarnings ASC) a firestore.indexes.json. Conserva los tres índices existentes sin duplicarlos.
+2. Añade una nueva Entrada #32 en docs/AI_LOG.md documentando el error, la causa, el índice añadido, las pruebas y el uso de Claude Code. Mantén todas las entradas numeradas en orden y la sección Consideraciones generales al final.
+3. Verifica que el JSON sea válido, ejecuta git diff --check y las pruebas locales pertinentes.
+4. Informa los archivos modificados y resultados.
+
+No modifiques firestore.rules, servicios, pantallas, dependencias ni pruebas salvo que detectes una razón imprescindible, en cuyo caso informa antes de modificar. No hagas commits, push ni despliegues. No modifiques .env. Conserva JavaScript y Expo SDK 58.
+````
+
+- **Resumen de la respuesta:**
+  - **Error:** con el índice de la comisión pendiente (entrada #31) ya disponible, la pantalla Pagos seguía sin calcular el saldo. Firestore rechazaba con `failed-precondition` la agregación de totales de `drivers/{uid}/ledgerEntries` y proporcionó el enlace para crear el índice.
+  - **Causa:** la consulta de `getDriverBalanceTotalsWithDatabase` filtra por `type == "cash_commission"` y calcula `count()` y `sum()` sobre `cashAmount`, `commission` y `driverEarnings`. Una agregación sobre varios campos con filtro requiere un índice compuesto, que no estaba declarado.
+  - **Por qué faltaba desde la entrada #31:** las dos agregaciones del saldo se lanzan en paralelo con `Promise.all`, que solo propaga el primer error. Por eso Firestore solo había mostrado el enlace de la comisión pendiente. La documentación oficial no permite deducir la composición de este índice, de modo que en la entrada #31 quedó pendiente hasta disponer del enlace.
+  - **Índice añadido:**
+    - Se decodificó el parámetro `create_composite` del enlace oficial: `ledgerEntries`, ámbito de colección, `type ASC, cashAmount ASC, commission ASC, driverEarnings ASC`, y el `__name__ ASC` implícito, que no se declara.
+    - Coincide con la definición indicada en el prompt y se declaró con los campos en ese orden.
+- **Qué se usó / modificó / descartó:**
+  - Se añadió el índice a `firestore.indexes.json`, que pasa de 3 a 4 índices; los anteriores no cambian.
+  - No fue necesario modificar las consultas, `firestore.rules`, los servicios, las pantallas, las pruebas ni las dependencias.
+- **Archivos modificados:** `firestore.indexes.json` y `docs/AI_LOG.md`.
+- **Commit:** Pendiente (lo registra el integrante).
+- **Verificación:**
+  - **`firestore.indexes.json`:** JSON válido, con 4 índices y sin duplicados.
+  - **Suites:**
+    - `npm run test:unit`: 139/139.
+    - `npm run test:integration`: 37/37.
+    - `npm run test:rules`: 151/151 (0 omitidas). Ningún aviso "maximum of 1000 expressions".
+  - **`git diff --check`:** sin errores.
+  - **Limitación:** el emulador no verifica índices, de modo que el efecto del índice solo puede comprobarse en el proyecto real tras desplegarlo.
+  - **Sin desplegar:** no se desplegó nada.
+- **Pendientes:**
+  - Desplegar los índices con `--only firestore:indexes`, cuando el integrante lo autorice.
+  - Comprobar que el índice esté "Habilitado" y que Ganancias → Pagos muestre el saldo.
+  - Verificar en el proyecto real la consulta paginada de cobros pendientes (entrada #31).
+- **Aprendizaje:** Cuando varias consultas que requieren índices se ejecutan en paralelo, los índices que faltan aparecen de uno en uno. Por eso conviene volver a probar la pantalla después de habilitar cada índice, hasta que deje de aparecer el error.
+
 ---
 
 ## Consideraciones generales
 
 - Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
-- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26, #27, #28, #29, #30 y #31 se realizaron con Claude Code en el repositorio local.
+- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26, #27, #28, #29, #30, #31 y #32 se realizaron con Claude Code en el repositorio local.
 - Cuando un prompt no se conserva literalmente, el campo se identifica como resumen.
 - Los archivos generados por la plantilla de Expo (entrada #1) y por npm (`package-lock.json`) no constituyen código generado por IA.
 - Los commits de documentación `e7f8588`, `8748a20`, `f5ef7a9`, `04788d3`, `74b621a`, `3669693`, `8e6ef79`, `eff416b` y `8cf42fd` solo actualizan esta bitácora o el README; no consta el uso de IA en ellos.

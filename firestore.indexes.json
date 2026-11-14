@@ -45,6 +45,28 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "ledgerEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "type",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cashAmount",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "commission",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "driverEarnings",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
