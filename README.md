@@ -44,13 +44,17 @@ npx expo start
 
 Después, escanear el código QR con Expo Go o ejecutar la aplicación en un emulador compatible.
 
+**En un iPhone con Expo Go** (mismo Wi-Fi que el Mac): `npx expo start -c` y escanear el QR con la cámara. Para presentar el cobro digital sin credenciales, usar el [MODO DEMOSTRACIÓN](#modo-demostración-sin-credenciales-ni-blaze).
+
 ## Estructura del proyecto
 
 ```text
 uberclone-driver/
 ├── assets/
 ├── docs/
-│   └── AI_LOG.md
+│   ├── AI_LOG.md
+│   ├── AI_LOG.pdf
+│   └── CUMPLIMIENTO.md
 ├── functions/          # backend de pagos (Cloud Functions, Mercado Pago)
 │   ├── src/
 │   ├── test/
@@ -58,6 +62,7 @@ uberclone-driver/
 │   └── index.js
 ├── src/
 │   ├── components/
+│   │   ├── history/
 │   │   ├── map/
 │   │   ├── payments/
 │   │   ├── registration/
@@ -104,7 +109,8 @@ Después del registro, la aplicación incluye:
 - **Solicitudes de viaje:** lista en tiempo real con origen, destino, distancia, duración, categoría, método de pago, tarifa, comisión y ganancia neta estimadas; 15 segundos para aceptar o rechazar, con rechazo automático al vencer.
 - **Ciclo del viaje:** aceptar → "Voy en camino" → "Llegué al origen" → "Pasajero a bordo" → finalizar, o cancelar antes de recoger al pasajero, mediante transacciones de Firestore y con recuperación del viaje activo al reiniciar la aplicación.
 - **Ruta del viaje:** recorrido hasta el punto de recogida o el destino, calculado con el servicio público OSRM.
-- **Ganancias, pagos e historial:** resumen con comisión del 20 % para la plataforma y 80 % para el conductor, e historial de viajes completados, pagados y cancelados con el estado de su pago.
+- **Ganancias y pagos:** resumen con comisión del 20 % para la plataforma y 80 % para el conductor, y saldo con la plataforma.
+- **Historial de carreras:** lista ordenada del viaje más reciente al más antiguo, con filtros (Hoy, Semana, Mes, Rango de fechas y método de pago), carga incremental y detalle de cada viaje con mapa y ruta de referencia (ver [Historial de carreras](#historial-de-carreras)).
 - **Pagos en efectivo y saldo:** el conductor confirma el efectivo recibido de cada viaje finalizado; la comisión del 20 % queda registrada como deuda pendiente con la plataforma y la pantalla Pagos muestra su saldo.
 - **Pasarela de pagos (modo de prueba):** cobro con Mercado Pago Checkout Pro mediante un backend en Cloud Functions que crea la preferencia, confirma el pago con la API y actualiza el viaje y el saldo (ver [Pasarela de pagos](#pasarela-de-pagos-mercado-pago-checkout-pro)).
 - **Perfil:** datos del conductor, del vehículo y acceso a la edición del registro.
@@ -114,7 +120,8 @@ Las reglas de `firestore.rules` restringen cada operación al conductor propieta
 Limitaciones conocidas:
 
 - El plazo de 15 segundos cuenta desde que cada conductor recibe la solicitud. Una solicitud que nadie acepta sigue en `pending` en Firestore: marcarla como vencida o rechazada para todos requiere un backend.
-- El historial consulta un máximo de 50 viajes finalizados.
+- Las pantallas Ganancias y Pagos usan los 50 viajes finalizados más recientes; el historial carga todos, de 20 en 20.
+- No hay calificación del pasajero (requiere la app del pasajero): el detalle muestra «Sin calificación».
 - El registro del efectivo es una declaración del conductor: la app no puede verificar que el pasajero pagó. La liquidación de comisiones requiere un backend administrativo (pendiente).
 - El cobro con Mercado Pago (modo de prueba) tiene backend en `functions/`, probado con los emuladores; su despliegue requiere el plan Blaze. Stripe no está integrado.
 - La distancia y la duración de cada viaje deben venir en el documento de la solicitud (`distanceKm`, `durationMin`); la consulta a Google Distance Matrix al crear la solicitud no está integrada.
@@ -329,6 +336,29 @@ En la app: aceptar la solicitud, recorrer el viaje, finalizarlo y pulsar **Abrir
 
 Si la IP detectada no es la de la Wi-Fi, se puede indicar con `--ip`, por ejemplo `npm run demo:emuladores -- --ip 192.168.1.5`.
 
+## Historial de carreras
+
+Pestaña **Ganancias → Historial** (guía, sección 6).
+
+- **Lista (`FlatList`)**: fecha y hora, origen y destino, categoría, tarifa, ganancia neta, estado del viaje y método y estado del pago. Ordenada del viaje más reciente al más antiguo según `createdAt`.
+- **Filtros combinables**: Todos, Hoy, Semana (lunes a domingo), Mes, Rango de fechas (con el `DateTimePicker`, días completos e incluidos) y método de pago. Si no hay viajes, se indica con un mensaje según el filtro.
+- **Carga incremental**: 20 viajes por página con cursor de Firestore; «Cargar más» o desplazarse hasta el final; deslizar hacia abajo para actualizar. No se repiten viajes entre páginas.
+- **Detalle**: al tocar un viaje se abre una vista con fecha y hora, origen y destino, categoría, distancia, duración, tarifa, comisión aplicada (20 %), propina, ganancia neta, método y estado del pago y calificación («Sin calificación» si no existe). No se inventan datos: lo que falta se muestra como «No disponible».
+- **Mapa**: origen, destino y una **ruta de referencia** calculada con OSRM entre ambos puntos. Los viajes no guardan el recorrido real, así que la ruta se identifica como referencia. Si faltan coordenadas o falla el servicio, se indica y el resto del detalle sigue visible.
+
+**Consulta e índices.** El historial consulta en Firestore los viajes finalizados del conductor ordenados por `createdAt` (descendente), con el periodo y el método de pago filtrados en el servidor y `limit(20)`. Las reglas no cambian (viajes finalizados propios, `limit <= 50`). Esta consulta necesita dos índices compuestos declarados en `firestore.indexes.json` y **pendientes de despliegue**:
+
+- `trips`: `driverId`, `status`, `createdAt` (desc).
+- `trips`: `driverId`, `paymentMethod`, `status`, `createdAt` (desc).
+
+Mientras no estén publicados, Firestore responde `failed-precondition` y la app usa automáticamente un **respaldo**: lee todos los viajes finalizados con la consulta que ya funciona (páginas de 50) y los filtra y ordena en el dispositivo, con un aviso en pantalla. Para publicarlos (con autorización):
+
+```bash
+npx --yes --package firebase-tools firebase deploy --only firestore:indexes --project uberclone-driver-8e0bf
+```
+
+Los viajes sin `createdAt` solo aparecen en el respaldo y sin filtro de periodo; todos los viajes creados por las solicitudes y los scripts de la app tienen `createdAt`.
+
 ## Ubicación GPS y Google Maps
 
 La pestaña Inicio muestra un mapa con la ubicación real del conductor. Usa `expo-location` (solo primer plano) y `react-native-maps`. Cuando el conductor está conectado y aprobado, su ubicación se publica en `driverLocations/{uid}`, una colección privada que solo puede leer y escribir su propietario. Al desconectarse se detiene la publicación y se elimina el documento. No hay ubicación en segundo plano: el seguimiento se detiene cuando la app pasa a segundo plano. Si la app se cierra inesperadamente mientras el conductor está conectado, `drivers/{uid}.isOnline` puede seguir siendo `true` y la última ubicación puede permanecer almacenada. El futuro módulo de asignación de viajes deberá ignorar ubicaciones antiguas comprobando `updatedAt` y definir un mecanismo de expiración o presencia; `isOnline` por sí solo no garantiza que el conductor esté activo.
@@ -385,7 +415,7 @@ Se utiliza inteligencia artificial como herramienta de apoyo para el análisis d
 
 La bitácora registra las solicitudes realizadas, los resultados utilizados, los archivos modificados y las verificaciones correspondientes.
 
-Consulta la [bitácora de uso de inteligencia artificial](docs/AI_LOG.md).
+Consulta la [bitácora de uso de inteligencia artificial](docs/AI_LOG.md) (también en [PDF](docs/AI_LOG.pdf)) y el [reporte de cumplimiento de la guía](docs/CUMPLIMIENTO.md).
 
 ## Repositorio
 
