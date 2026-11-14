@@ -19,7 +19,9 @@ const ZOOM_DELTA = 0.01;
 // Android usa Google Maps. En iOS se usa Google Maps solo cuando la app se
 // construyó con la clave de iOS y EXPO_PUBLIC_USE_GOOGLE_MAPS_IOS=true;
 // Expo Go en iOS no incluye Google Maps y usa Apple Maps.
-function getMapProvider() {
+// AI-assisted: see docs/AI_LOG.md #40
+// Exportada para que el mapa del historial use el mismo proveedor.
+export function getMapProvider() {
   if (Platform.OS === 'android') {
     return PROVIDER_GOOGLE;
   }
