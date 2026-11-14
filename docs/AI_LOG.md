@@ -1392,12 +1392,196 @@ No hagas commits. ChatGPT y yo realizaremos la revisión final y el control de v
   - El emulador no verifica índices. Si en producción Firestore pidiera un índice compuesto para las consultas de igualdad, el error incluye el enlace para crearlo.
 - **Aprendizaje:** Las reglas de Firestore pueden garantizar la coherencia entre dos documentos escritos en la misma operación (`existsAfter`/`getAfter`) y la inmutabilidad de un registro, pero no la veracidad de un hecho del mundo real como la entrega del efectivo. Copiar los importes ya validados, en lugar de recalcularlos, mantiene los registros financieros consistentes entre pantallas y en el tiempo.
 
+### Entrada #30
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Diagnosticar el error `The query requires an index` en la consulta de solicitudes pendientes y revisar si otras consultas de la app requieren índices compuestos.
+- **Prompt (texto literal):**
+
+````text
+# Claude Code — UberClone Driver: diagnóstico y corrección de índices Firestore
+
+Actúa como ingeniero senior de React Native, Expo, Firebase y Firestore, especializado en depuración, seguridad y pruebas automatizadas.
+
+## Contexto
+
+Proyecto: UberClone Driver.
+
+Stack: Expo SDK 58, React Native, JavaScript, Firebase Authentication anónima, Cloud Firestore y Cloudinary.
+
+Firebase Project ID: `uberclone-driver-8e0bf`.
+
+El proyecto ya implementa registro del conductor, aprobación, pantalla Home, disponibilidad, ubicación, solicitudes de viajes, ciclo de viajes, tarifas, cobros en efectivo, ganancias, historial y perfil.
+
+Las reglas locales de Firestore se probaron con `npm run test:rules`: **150 pruebas superadas, 0 fallidas y 0 omitidas**.
+
+Posteriormente se ejecutó exitosamente:
+
+`npx --yes --package firebase-tools firebase deploy --only firestore:rules --project uberclone-driver-8e0bf`
+
+Las reglas se publicaron correctamente.
+
+El error anterior `Missing or insufficient permissions` al recuperar viajes activos dejó de aparecer en los últimos registros, pero apareció este nuevo error:
+
+```text
+ERROR Error al escuchar viajes pendientes:
+[FirebaseError: The query requires an index.]
+
+ERROR Error en las solicitudes de viaje:
+[FirebaseError: The query requires an index.]
+```
+
+Firebase solicita un índice compuesto en la colección `trips` con los campos:
+
+- `status`: Ascending.
+- `createdAt`: Descending.
+- `__name__`: Descending (implícito en el enlace de Firebase).
+
+## Objetivo principal
+
+Corregir la falta de índices compuestos de Firestore y detectar preventivamente otros índices requeridos por las consultas actuales, sin alterar la lógica funcional ni debilitar las reglas de seguridad.
+
+## Instrucciones obligatorias
+
+1. Lee primero `AGENTS.md`, `package.json`, `firebase.json`, `firestore.indexes.json`, `firestore.rules`, los servicios de Firestore y los archivos de pruebas relevantes.
+2. Revisa todas las consultas Firestore de la aplicación, especialmente las relacionadas con viajes pendientes, viajes activos, historial, ganancias y cobros.
+3. Determina cuáles requieren índices compuestos y comprueba si ya están declarados.
+4. Actualiza `firestore.indexes.json` únicamente con los índices necesarios, sin duplicados.
+5. Verifica que los índices sean compatibles con las consultas reales. No modifiques consultas funcionales solo para evitar crear índices.
+6. Ejecuta `npm run test:unit`, `npm run test:integration` y `npm run test:rules`. Si alguna prueba falla, investiga y corrige la causa dentro del alcance.
+7. Ejecuta `npx expo-doctor` y `npx expo export --platform ios`, si el entorno lo permite.
+8. No cambies `.env`, credenciales, configuración sensible ni el proyecto Firebase.
+9. No modifiques las reglas de seguridad salvo que descubras un problema real y documentes su justificación. No amplíes permisos indiscriminadamente.
+10. No hagas commits, push, merges ni despliegues automáticos.
+11. Conserva la compatibilidad con Expo SDK 58, JavaScript y los documentos existentes en Firestore.
+12. Documenta los cambios asistidos por IA en `docs/AI_LOG.md`, respetando la numeración consecutiva de `Entrada #N` y manteniendo `### Consideraciones generales` al final. No inventes resultados ni números de commits. Usa los comentarios `// AI-assisted: see docs/AI_LOG.md #N` cuando corresponda.
+13. Trabaja sobre el repositorio existente. No reconstruyas el proyecto ni instales dependencias innecesarias.
+
+## Entregables
+
+Al finalizar, presenta:
+
+- Causa raíz del error.
+- Consultas inspeccionadas.
+- Índices existentes y nuevos.
+- Archivos modificados.
+- Resultado de cada suite de pruebas.
+- Riesgos o limitaciones pendientes.
+- Comando exacto recomendado para desplegar exclusivamente los índices en el proyecto correcto.
+- Procedimiento para comprobar que los índices estén en estado `Enabled` y verificar la aplicación.
+
+**Importante:** Puedes realizar los cambios locales necesarios y ejecutar las pruebas, pero debes detenerte antes de cualquier despliegue a Firebase o modificación remota. Yo revisaré los resultados y autorizaré el despliegue.
+
+Prioriza resolver el error actual de manera segura y rápida. Evita refactorizaciones ajenas al problema.
+````
+
+- **Resumen de la respuesta:**
+  - **Causa raíz:** el índice compuesto `trips (status ASC, createdAt DESC)` que exige la consulta de solicitudes pendientes ya estaba declarado en `firestore.indexes.json` desde el commit `b7cfcba` (entrada #28), pero no estaba publicado. El despliegue se hizo con `--only firestore:rules`, que no publica índices.
+  - **Comprobación de solo lectura:** `npx firebase-tools firestore:indexes --project uberclone-driver-8e0bf` mostró que en el proyecto solo existe `trips (driverId ASC, status ASC)`.
+  - No fue necesario modificar `firestore.indexes.json`, las consultas ni las reglas.
+- **Qué se usó / modificó / descartó:**
+  - **Consultas revisadas (8):**
+    1. Solicitudes pendientes: `status ==` + `orderBy(createdAt desc)`. Requiere el índice declarado y no publicado.
+    2. Viaje activo: `driverId ==` + `status in`. Cubierta por el índice publicado.
+    3. Historial: `driverId ==` + `status in`. Cubierta por el índice publicado.
+    4. Cobros en efectivo pendientes: tres filtros de igualdad, paginada con `startAfter`.
+    5. Ofertas: `orderBy(offeredAt desc)`. Índice automático de un solo campo.
+    6. Asientos recientes: `orderBy(createdAt desc)`. Índice automático de un solo campo.
+    7. Total del saldo: `type ==` + `count` y tres `sum`.
+    8. Comisión pendiente: `type ==` + `status ==` + `sum`.
+  - **Documentación oficial consultada:**
+    - Las consultas con varias igualdades pueden servirse combinando índices existentes (*index merging*).
+    - Para agregaciones sobre varios campos, la documentación indica que la consulta "podría" requerir un índice compuesto y que Firestore lo sugiere en ese caso, sin especificar cuál.
+  - **Decisión:** no se añadieron índices especulativos para las consultas 4 y 7, porque el emulador no verifica índices y no puede comprobarse su composición exacta; quedaron documentadas como riesgo con un procedimiento de verificación. No se modificó ninguna consulta para evitar índices.
+  - **Corrección (registrada en la entrada #31):** la consulta 8 también debió quedar documentada como riesgo. En el informe se dio por cubierta mediante la combinación de índices existentes, pero la documentación oficial solo describe esa combinación para filtros de igualdad con un `orderBy` opcional, no para agregaciones. En el proyecto real, Firestore pidió un índice compuesto para esa consulta.
+- **Archivos modificados:** `docs/AI_LOG.md`.
+- **Commit:** Pendiente (lo registra el integrante).
+- **Verificación:** `firestore.indexes.json` es JSON válido, con 2 índices y sin duplicados. `npm run test:unit`: 139/139. `npm run test:integration`: 37/37. `npm run test:rules`: 150/150 (0 omitidas). Ningún aviso "maximum of 1000 expressions". `npx expo-doctor`: 20/20. `npx expo export --platform ios`: bundle generado (997 módulos). No se desplegó nada: la publicación de los índices queda pendiente de la autorización del integrante.
+- **Aprendizaje:** Un índice declarado en el repositorio no existe en Firebase hasta que se despliega con `firestore:indexes`; desplegar solo las reglas no lo publica. El emulador de Firestore no valida índices, por lo que esa comprobación solo puede hacerse contra el proyecto real.
+
+### Entrada #31
+
+- **Fecha:** 2026-11-13
+- **Integrante:** Julian Cardona
+- **Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5
+- **Objetivo:** Diagnosticar el rechazo `permission-denied` al pasar un viaje pendiente a `in_progress` y los errores de índice de las agregaciones del saldo del conductor; aplicar solo las correcciones locales confirmadas.
+- **Prompts (texto literal):**
+
+Primer prompt (auditoría de solo lectura):
+
+````text
+Realiza una auditoría SOLO LECTURA de UberClone Driver. No modifiques archivos, no hagas commits ni despliegues.
+
+Problema 1: Firestore rechaza con permission-denied la actualización de trips/viaje_prueba_001 que cambia status a in_progress y startedAt a serverTimestamp(). Antes, el documento tenía status=pending y driverId=null. Revisa firestore.rules, las transiciones de estados, el servicio de viajes, la asignación de driverId y el flujo de aceptar/iniciar viaje. Determina la causa exacta y qué datos o pasos se necesitan para una prueba válida. No propongas relajar reglas sin justificación.
+
+Problema 2: consultas de drivers/{uid}/ledgerEntries fallan. Una consulta filtra type=cash_commission y status=pending, agregando sum(commission), y solicita un índice. Otra filtra type=cash_commission y agrega count y sum(cashAmount, commission, driverEarnings), con failed-precondition. Revisa firestore.indexes.json, los servicios de ganancias y el diseño de consultas. Indica los índices concretos que faltan y si se requiere algún cambio de código.
+
+Ejecuta únicamente pruebas locales disponibles, si son necesarias. Devuélveme diagnóstico con archivos y líneas, plan mínimo de corrección y comandos de verificación. Conserva compatibilidad con Expo SDK 58, JavaScript, Firebase y la bitácora docs/AI_LOG.md.
+````
+
+Segundo prompt (implementación):
+
+````text
+Excelente diagnóstico. Ya tenemos el enlace oficial del primer índice de comisión pendiente:
+https://console.firebase.google.com/v1/r/project/uberclone-driver-8e0bf/firestore/indexes?create_composite=Clxwcm9qZWN0cy91YmVyY2xvbmUtZHJpdmVyLThlMGJmL2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGxlY3Rpb25Hcm91cHMvbGVkZ2VyRW50cmllcy9pbmRleGVzL18QARoKCgZzdGF0dXMQARoICgR0eXBlEAEaDgoKY29tbWlzc2lvbhABGgwKCF9fbmFtZV9fEAE
+
+Implementa únicamente las correcciones locales respaldadas por el diagnóstico: agrega el índice confirmado de ledgerEntries a firestore.indexes.json, añade la prueba de regresión que rechaza pending → in_progress, corrige la omisión en Entrada #30 de docs/AI_LOG.md y agrega Entrada #31 en orden cronológico, antes de Consideraciones generales.
+
+Para la segunda agregación, verifica si existe un enlace oficial de creación de índice o una forma fiable de determinar su definición. No inventes el índice ni lo agregues si no está confirmado; déjalo documentado como pendiente.
+
+No cambies firestore.rules, servicios de viajes, lógica de pagos ni dependencias. No hagas commits, push ni despliegues. Ejecuta las pruebas locales pertinentes y reporta archivos modificados, resultados y cualquier pendiente. Conserva Expo SDK 58, JavaScript y los comentarios AI-assisted cuando corresponda.                                                                                                                     https://console.firebase.google.com/project/uberclone-driver-8e0bf/firestore/databases/-default-/indexes?create_composite=Clxwcm9qZWN0cy91YmVyY2xvbmUtZHJpdmVyLThlMGJmL2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9sZWRnZXJFbnRyaWVzL2luZGV4ZXMvXxABGgoKBnN0YXR1cxABGggKBHR5cGUQARoOCgpjb21taXNzaW9uEAEaDAoIX19uYW1lX18QAQ
+````
+
+- **Resumen de la respuesta:**
+  - **Problema 1, `pending → in_progress`:** el rechazo es el comportamiento esperado y no requiere cambiar las reglas.
+    - La regla de actualización de `trips` se decide por el estado actual. Desde `pending` solo se evalúa la aceptación, que exige pasar a `accepted`, asignarse `driverId`, modificar únicamente `status` y `driverId`, y tener una oferta vigente de menos de 15 s.
+    - El ciclo de vida exige además que el conductor asignado haga la petición y que el viaje esté en `driver_arriving` con `arrivedAt` para poder pasar a `in_progress`.
+    - La app tampoco intenta ese salto: `canStartTrip` aplica las mismas condiciones.
+    - Una prueba válida sigue el ciclo desde la app: crear la solicitud con la plantilla `scripts/dev/tripRequestTemplate.json` (con `paymentMethod`, que después ya no puede añadirse), y luego Aceptar en menos de 15 s, "Voy en camino", "Llegué al origen" y "Pasajero a bordo".
+  - **Problema 2, agregaciones del saldo:** las dos consultas de `getDriverBalanceTotalsWithDatabase` combinan un filtro con `sum()`. `firestore.indexes.json` no declaraba ningún índice de `ledgerEntries`. No hace falta cambiar código.
+  - **Índice de la comisión pendiente (confirmado):**
+    - Se decodificó el parámetro `create_composite` del enlace oficial: `ledgerEntries`, ámbito de colección, `status ASC, type ASC, commission ASC`, y el `__name__ ASC` implícito, que no se declara.
+    - De las dos copias del enlace, la primera estaba alterada (`colllectionGroups`, con la longitud del campo descuadrada). La segunda es válida. Ambas indican los mismos campos.
+  - **Índice de los totales (pendiente):** no se añadió porque no está confirmado.
+    - No hay ningún enlace oficial disponible para él.
+    - La documentación oficial de agregaciones solo indica que una consulta con agregaciones sobre varios campos "might require a composite index" y que Firestore lo sugiere. No especifica qué campos incluye ni en qué orden.
+    - El servicio lanza las dos agregaciones en paralelo con `Promise.all`, que solo propaga el primer rechazo. Eso explica que solo se viera el enlace de la comisión pendiente. Con ese índice habilitado, al abrir Ganancias → Pagos el registro "Error al consultar el saldo del conductor" de Metro mostrará el enlace de la consulta de totales.
+- **Qué se usó / modificó / descartó:**
+  - Se añadió a `firestore.indexes.json` el índice confirmado, con los campos en el mismo orden que el enlace.
+  - Se añadió la prueba de regresión "Impide iniciar un viaje pendiente sin aceptarlo".
+    - Usa un conductor habilitado con una oferta vigente y comprueba que se rechaza el paso a `in_progress`, también cuando la misma escritura se asigna el `driverId`.
+    - Como control, comprueba que la aceptación normal sí se permite, de modo que el rechazo se debe al salto de estado.
+  - Se corrigió la entrada #30: la consulta de comisión pendiente se había dado por cubierta mediante la combinación de índices existentes, sin quedar documentada como riesgo.
+  - **Descartado:**
+    - Deducir la definición del segundo índice a partir de la documentación.
+    - Lanzar consultas contra el proyecto real con credenciales de administrador para obtener el enlace.
+    - Cambiar las consultas para evitar índices.
+    - Modificar `firestore.rules`, los servicios de viajes o la lógica de pagos.
+- **Archivos modificados:** `firestore.indexes.json`, `tests/trips.rules.test.cjs` y `docs/AI_LOG.md`.
+- **Commit:** Pendiente (lo registra el integrante).
+- **Verificación:**
+  - **`firestore.indexes.json`:** JSON válido, con 3 índices y sin duplicados.
+  - **Suites:**
+    - `npm run test:unit`: 139/139.
+    - `npm run test:integration`: 37/37.
+    - `npm run test:rules`: 151/151 (0 omitidas). Ningún aviso "maximum of 1000 expressions".
+  - **Prueba de mutación:** la prueba nueva falla contra una copia de las reglas que permite cualquier cambio desde `pending`, y pasa con las reglas reales. La copia se creó en un directorio temporal; `firestore.rules` no cambió.
+  - **Sin ejecutar:** `npx expo-doctor` y `npx expo export`, porque no cambiaron ni el código de la app ni las dependencias.
+  - **Sin desplegar:** no se desplegó nada.
+- **Pendientes:**
+  - Desplegar los índices con `--only firestore:indexes`, cuando el integrante lo autorice.
+  - Obtener el enlace oficial del índice de los totales y añadirlo a `firestore.indexes.json`.
+  - Verificar en el proyecto real la consulta paginada de cobros pendientes.
+- **Aprendizaje:** El enlace `create_composite` que genera Firestore codifica la definición exacta del índice, por lo que puede decodificarse y declararse en el repositorio sin crearlo a mano en la consola. Cuando varias consultas se lanzan en paralelo con `Promise.all`, solo se ve el primer error, y los índices que faltan aparecen de uno en uno.
+
 ---
 
 ## Consideraciones generales
 
 - Las implementaciones fueron revisadas y ejecutadas dentro del proyecto. Las funcionalidades que todavía no han sido integradas o verificadas se registran como pendientes, sin presentarlas como terminadas.
-- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26, #27, #28 y #29 se realizaron con Claude Code en el repositorio local.
+- Las herramientas se identifican como: **ChatGPT (OpenAI)**, **Claude (Anthropic)** para el uso conversacional de las entradas #10, #11 y #13, **Gemini CLI (Google)** y **Claude Code (Anthropic)**. Las atribuciones de las entradas #1 a #22 se basan en la declaración de esta bitácora y en los comentarios del código; no existen exportaciones de las conversaciones en el repositorio que permitan verificarlas de forma independiente. Las entradas #23, #24, #26, #27, #28, #29, #30 y #31 se realizaron con Claude Code en el repositorio local.
 - Cuando un prompt no se conserva literalmente, el campo se identifica como resumen.
 - Los archivos generados por la plantilla de Expo (entrada #1) y por npm (`package-lock.json`) no constituyen código generado por IA.
 - Los commits de documentación `e7f8588`, `8748a20`, `f5ef7a9`, `04788d3`, `74b621a`, `3669693`, `8e6ef79`, `eff416b` y `8cf42fd` solo actualizan esta bitácora o el README; no consta el uso de IA en ellos.
