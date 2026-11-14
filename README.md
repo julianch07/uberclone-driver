@@ -97,7 +97,8 @@ Después del registro, la aplicación incluye:
 - **Solicitudes de viaje:** lista en tiempo real con origen, destino, distancia, duración, categoría, método de pago, tarifa, comisión y ganancia neta estimadas; 15 segundos para aceptar o rechazar, con rechazo automático al vencer.
 - **Ciclo del viaje:** aceptar → "Voy en camino" → "Llegué al origen" → "Pasajero a bordo" → finalizar, o cancelar antes de recoger al pasajero, mediante transacciones de Firestore y con recuperación del viaje activo al reiniciar la aplicación.
 - **Ruta del viaje:** recorrido hasta el punto de recogida o el destino, calculado con el servicio público OSRM.
-- **Ganancias, pagos e historial:** resumen con comisión del 20 % para la plataforma y 80 % para el conductor, e historial de viajes completados y cancelados.
+- **Ganancias, pagos e historial:** resumen con comisión del 20 % para la plataforma y 80 % para el conductor, e historial de viajes completados, pagados y cancelados con el estado de su pago.
+- **Pagos en efectivo y saldo:** el conductor confirma el efectivo recibido de cada viaje finalizado; la comisión del 20 % queda registrada como deuda pendiente con la plataforma y la pantalla Pagos muestra su saldo.
 - **Perfil:** datos del conductor, del vehículo y acceso a la edición del registro.
 
 Las reglas de `firestore.rules` restringen cada operación al conductor propietario y validan su estado. Las funcionalidades se verificaron en Expo Go.
@@ -106,6 +107,7 @@ Limitaciones conocidas:
 
 - El plazo de 15 segundos cuenta desde que cada conductor recibe la solicitud. Una solicitud que nadie acepta sigue en `pending` en Firestore: marcarla como vencida o rechazada para todos requiere un backend.
 - El historial consulta un máximo de 50 viajes finalizados.
+- El registro del efectivo es una declaración del conductor: la app no puede verificar que el pasajero pagó. La liquidación de comisiones y los pagos digitales requieren un backend (pendiente).
 - La distancia y la duración de cada viaje deben venir en el documento de la solicitud (`distanceKm`, `durationMin`); la consulta a Google Distance Matrix al crear la solicitud no está integrada.
 - El servicio público de OSRM es adecuado para pruebas, pero no garantiza disponibilidad en producción.
 - La configuración nativa de Google Maps en un *development build* está pendiente.
@@ -172,7 +174,7 @@ No existe aplicación de pasajero: las solicitudes se crean como documentos en l
 | Finalizar viaje | `in_progress` → `completed` | `completedAt` y desglose de tarifa |
 | Cancelar (antes de que suba el pasajero) | `accepted` o `driver_arriving` → `cancelled` | `cancelledAt` |
 
-La ruta del mapa va al punto de recogida hasta que el pasajero sube y después al destino. Los estados `paid` (módulo de pagos) y `rejected` global (requiere un backend) no los escribe esta app. Las reglas impiden al conductor modificar la tarifa, la distancia, la duración, la categoría, la propina, el método o el estado de pago, y cualquier cambio después de finalizar.
+La ruta del mapa va al punto de recogida hasta que el pasajero sube y después al destino. El estado `paid` lo escribe el conductor solo al confirmar un cobro en efectivo (ver [Pagos en efectivo y saldo](#pagos-en-efectivo-y-saldo)); el estado `rejected` global (requiere un backend) no los escribe esta app. Las reglas impiden al conductor modificar la tarifa, la distancia, la duración, la categoría, la propina, el método o el estado de pago, y cualquier cambio después de finalizar.
 
 ### Cómo probarlo
 
@@ -193,6 +195,51 @@ El simulador está en `scripts/dev/`, fuera del código de la app. Solo funciona
 1. Publicar antes las reglas y los índices de este módulo. La lista de solicitudes usa el índice compuesto `trips (status, createdAt desc)`.
 2. Crear en Firebase Console un documento en `trips` siguiendo `scripts/dev/tripRequestTemplate.json`, con `createdAt` como timestamp de la fecha y hora actuales.
 3. Con el conductor aprobado y conectado, abrir la pestaña Viajes: la solicitud aparece con su cuenta regresiva de 15 s.
+
+## Pagos en efectivo y saldo
+
+### Cobro en efectivo
+
+Al finalizar un viaje con `paymentMethod: "cash"`, la pestaña Viajes muestra una tarjeta **Cobro en efectivo por confirmar** con:
+
+| Concepto | Ejemplo (tarifa 20.000 COP, sin propina) |
+|---|---|
+| Efectivo a recibir del pasajero (tarifa + propina) | 20.000 COP |
+| Comisión que el conductor debe a la plataforma (20 % de la tarifa) | 4.000 COP |
+| Ganancia neta del conductor | 16.000 COP |
+
+Al pulsar **Confirmar efectivo recibido** se escriben, en una sola transacción:
+
+- `trips/{tripId}`: `status: "paid"`, `paymentStatus: "cash"` y `paidAt` con la hora del servidor.
+- `drivers/{uid}/ledgerEntries/cash_{tripId}`: asiento `cash_commission` con estado `pending`, que copia los importes guardados al finalizar (`fare`, `tip`, `commission`, `commissionRate`, `driverEarnings`) y añade `cashAmount` (tarifa + propina) y `amount` (comisión adeudada).
+
+Los importes no se recalculan: son los del desglose del módulo de tarifas, en pesos enteros, con la comisión redondeada a la mitad hacia arriba. Así el historial no cambia aunque cambien las tarifas.
+
+### Saldo del conductor
+
+La pantalla **Ganancias → Pagos** muestra la comisión pendiente con la plataforma, el efectivo recibido, las comisiones generadas, la ganancia neta en efectivo y la comisión de cada viaje. El saldo es negativo mientras haya comisiones pendientes.
+
+- **Totales completos:** Firestore los calcula en el servidor sobre todos los asientos (`count` y `sum`), así que no dependen de cuántos movimientos se muestren. La lista de comisiones muestra los 100 más recientes e indica cuando hay más. Si el cálculo falla, la pantalla muestra un error en lugar de un saldo parcial.
+- **Cobros por confirmar:** se consultan en el servidor filtrando por conductor, estado `completed` y método `cash`, y se leen todas las páginas de 50 resultados. Si falla una página, no se muestra una lista incompleta.
+
+### Seguridad e integridad
+
+`firestore.rules` exige que el cambio del viaje a `paid` y el asiento se escriban juntos (`existsAfter` y `getAfter`) y que el asiento tenga exactamente los importes del viaje. Un viaje solo genera un asiento, porque su ID es `cash_{tripId}`. El conductor no puede:
+
+- Repetir el cobro.
+- Modificar o borrar el asiento.
+- Marcar la comisión como liquidada.
+- Registrar efectivo en un viaje digital.
+- Modificar un viaje pagado.
+
+Repetir la operación o pulsar dos veces no duplica nada.
+
+### Limitaciones
+
+- La confirmación del efectivo es una declaración del conductor, no una verificación bancaria.
+- No existe un backend administrativo. Las comisiones quedan `pending`; su liquidación (estado `settled` y asientos de pago) deberá escribirla un servidor con credenciales de administrador, que las reglas no conceden a la app.
+- Los viajes con `mercadopago` o `stripe` quedan en `completed` con "Pago digital pendiente" hasta que el módulo de pagos digitales confirme el pago desde un backend.
+- Los viajes finalizados antes del módulo de tarifas, o sin `paymentMethod`, no pueden registrar un cobro.
 
 ## Ubicación GPS y Google Maps
 

@@ -1,4 +1,8 @@
 // AI-assisted: see docs/AI_LOG.md #22
+// AI-assisted: see docs/AI_LOG.md #29
+// Pagos y saldo del conductor. Se reemplazaron los textos fijos anteriores
+// ("Próximo pago estimado", "Lunes próximo", pagos semanales a Mercado
+// Pago), que no tenían implementación, por datos reales de Firestore.
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,10 +14,23 @@ import {
 import { getDriverTripHistory } from '../../services/tripService';
 // AI-assisted: see docs/AI_LOG.md #27
 import { formatCurrency, getTripEarnings } from '../../utils/fareLogic';
-import { TRIP_STATUS } from '../../utils/tripLogic';
+import { useDriverBalance } from '../../hooks/useDriverPayments';
+import {
+  isFinishedTrip,
+  LEDGER_ENTRY_STATUS,
+} from '../../utils/cashPaymentLogic';
+import { timestampToMillis } from '../../utils/tripRequestTimer';
+
+function formatEntryDate(entry) {
+  const millis = timestampToMillis(entry.createdAt);
+  return millis === null
+    ? 'Fecha pendiente'
+    : new Date(millis).toLocaleDateString('es-CO');
+}
 
 export default function PaymentSummaryScreen({ uid }) {
   const [loading, setLoading] = useState(true);
+  const [historyError, setHistoryError] = useState('');
   const [totals, setTotals] = useState({
     totalFare: 0,
     driverEarnings: 0,
@@ -21,20 +38,32 @@ export default function PaymentSummaryScreen({ uid }) {
     tips: 0,
   });
 
+  // AI-assisted: see docs/AI_LOG.md #29
+  const {
+    entries,
+    summary: balance,
+    hasMoreEntries,
+    loading: balanceLoading,
+    error: balanceError,
+  } = useDriverBalance(uid);
+
   useEffect(() => {
     async function loadPayments() {
       try {
         setLoading(true);
+        setHistoryError('');
         const history = await getDriverTripHistory(uid);
-        const completedTrips = history.filter(t => t.status === TRIP_STATUS.COMPLETED);
-        
+        // AI-assisted: see docs/AI_LOG.md #29
+        // Finalizados: completed y paid (con el cobro registrado).
+        const finishedTrips = history.filter(isFinishedTrip);
+
         let totalFare = 0;
         let driverEarnings = 0;
         let commission = 0;
         let tips = 0;
 
         // AI-assisted: see docs/AI_LOG.md #27
-        completedTrips.forEach(trip => {
+        finishedTrips.forEach(trip => {
           const breakdown = getTripEarnings(trip);
           totalFare += breakdown.fare;
           driverEarnings += breakdown.driverEarnings;
@@ -45,6 +74,7 @@ export default function PaymentSummaryScreen({ uid }) {
         setTotals({ totalFare, driverEarnings, commission, tips });
       } catch (e) {
         console.error(e);
+        setHistoryError('No se pudieron cargar tus ganancias.');
       } finally {
         setLoading(false);
       }
@@ -53,7 +83,7 @@ export default function PaymentSummaryScreen({ uid }) {
     loadPayments();
   }, [uid]);
 
-  if (loading) {
+  if (loading || balanceLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#276EF1" />
@@ -63,14 +93,39 @@ export default function PaymentSummaryScreen({ uid }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Estado de Pagos</Text>
-      
+      <Text style={styles.title}>Pagos y saldo</Text>
+
+      {/* AI-assisted: see docs/AI_LOG.md #29 */}
+      {balanceError ? <Text style={styles.errorText}>{balanceError}</Text> : null}
+
+      {/* Los totales se calculan en el servidor sobre todos los asientos;
+          sin ellos no se muestra ningún saldo parcial. */}
+      {balance ? (
+      <>
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>Próximo pago estimado</Text>
-        <Text style={styles.cardValue}>{formatCurrency(totals.driverEarnings)}</Text>
-        <Text style={styles.cardSub}>Fecha: Lunes próximo</Text>
+        <Text style={styles.cardLabel}>Comisión pendiente con la plataforma</Text>
+        <Text style={styles.cardValue}>{formatCurrency(balance.pendingCommission)}</Text>
+        <Text style={styles.cardSub}>
+          {balance.pendingCommission > 0
+            ? `Saldo: ${formatCurrency(balance.balance)} (debes esta comisión por viajes en efectivo)`
+            : 'No tienes comisiones pendientes.'}
+        </Text>
       </View>
 
+      <Text style={styles.sectionTitle}>Viajes cobrados en efectivo</Text>
+      <View style={styles.detailsCard}>
+        <DetailRow label="Viajes" value={String(balance.tripCount)} />
+        <DetailRow label="Efectivo recibido" value={formatCurrency(balance.cashCollected)} />
+        <DetailRow label="Comisiones generadas (20 %)" value={`- ${formatCurrency(balance.commissionTotal)}`} isNegative />
+        <DetailRow label="Comisión pendiente de pago" value={formatCurrency(balance.pendingCommission)} />
+        <View style={styles.divider} />
+        <DetailRow label="Ganancia neta en efectivo" value={formatCurrency(balance.netEarnings)} isTotal />
+      </View>
+      </>
+      ) : null}
+
+      <Text style={styles.sectionTitle}>Ganancias de todos tus viajes</Text>
+      {historyError ? <Text style={styles.errorText}>{historyError}</Text> : null}
       <View style={styles.detailsCard}>
         <DetailRow label="Total viajes" value={formatCurrency(totals.totalFare)} />
         <DetailRow label="Comisión UberClone (20%)" value={`- ${formatCurrency(totals.commission)}`} isNegative />
@@ -79,14 +134,50 @@ export default function PaymentSummaryScreen({ uid }) {
           <DetailRow label="Propinas (100 % para ti)" value={`+ ${formatCurrency(totals.tips)}`} />
         ) : null}
         <View style={styles.divider} />
-        <DetailRow label="Total a transferir" value={formatCurrency(totals.driverEarnings)} isTotal />
+        <DetailRow label="Ganancia neta" value={formatCurrency(totals.driverEarnings)} isTotal />
       </View>
 
+      {/* AI-assisted: see docs/AI_LOG.md #29 */}
+      <Text style={styles.sectionTitle}>Comisiones por viaje</Text>
+      {hasMoreEntries ? (
+        <Text style={styles.emptyText}>
+          Se muestran los {entries.length} movimientos más recientes de{' '}
+          {balance.tripCount}. Los totales incluyen todos.
+        </Text>
+      ) : null}
+      {entries.length === 0 ? (
+        <Text style={styles.emptyText}>
+          Aún no tienes viajes cobrados en efectivo.
+        </Text>
+      ) : (
+        <View style={styles.detailsCard}>
+          {entries.map((entry) => (
+            <View key={entry.id} style={styles.entry}>
+              <View>
+                <Text style={styles.entryDate}>{formatEntryDate(entry)}</Text>
+                <Text style={styles.entryDetail}>
+                  Efectivo {formatCurrency(entry.cashAmount)}
+                </Text>
+              </View>
+              <View style={styles.entryRight}>
+                <Text style={styles.negativeText}>- {formatCurrency(entry.commission)}</Text>
+                <Text style={styles.entryStatus}>
+                  {entry.status === LEDGER_ENTRY_STATUS.SETTLED ? 'Liquidada' : 'Pendiente'}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
       <View style={styles.infoBox}>
-        <Text style={styles.infoTitle}>¿Cómo funcionan los pagos?</Text>
+        <Text style={styles.infoTitle}>¿Cómo funciona el saldo?</Text>
         <Text style={styles.infoText}>
-          Los pagos se procesan semanalmente a tu cuenta de Mercado Pago registrada. 
-          La comisión del 20% se descuenta automáticamente del valor total de cada viaje.
+          En los viajes en efectivo recibes todo el dinero del pasajero, así
+          que la comisión del 20 % queda pendiente a favor de la plataforma.
+          Las comisiones se marcan como liquidadas cuando la plataforma
+          registra su pago; desde la app no se pueden marcar como pagadas.
+          Los pagos digitales se confirmarán con la pasarela de pago.
         </Text>
       </View>
     </ScrollView>
@@ -196,5 +287,43 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#616B78',
     lineHeight: 20,
+  },
+  // AI-assisted: see docs/AI_LOG.md #29
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#161B26',
+    marginBottom: 10,
+  },
+  entry: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  entryRight: {
+    alignItems: 'flex-end',
+  },
+  entryDate: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#161B26',
+  },
+  entryDetail: {
+    fontSize: 12,
+    color: '#697386',
+    marginTop: 2,
+  },
+  entryStatus: {
+    fontSize: 12,
+    color: '#697386',
+    marginTop: 2,
+  },
+  emptyText: {
+    color: '#697386',
+    marginBottom: 20,
+  },
+  errorText: {
+    color: '#B42318',
+    marginBottom: 12,
   },
 });

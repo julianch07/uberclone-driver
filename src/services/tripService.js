@@ -28,6 +28,15 @@ import {
   rejectTripOfferWithDatabase,
   subscribeToDriverTripOffersWithDatabase,
 } from './tripOfferService';
+// AI-assisted: see docs/AI_LOG.md #29
+import {
+  fetchPendingCashTripsWithDatabase,
+  getDriverBalanceTotalsWithDatabase,
+  registerCashPaymentWithDatabase,
+  subscribeToDriverBalanceWithDatabase,
+  subscribeToDriverLedgerWithDatabase,
+  subscribeToPendingCashTripsWithDatabase,
+} from './cashPaymentService';
 
 const MAX_PENDING_TRIPS = 20;
 
@@ -186,7 +195,7 @@ function finishedAtSeconds(trip) {
 }
 
 /**
- * Historial de viajes finalizados (completados o cancelados) del conductor.
+ * Historial de viajes finalizados (completados, pagados o cancelados) del conductor.
  * Lo usan las pantallas de historial, ganancias y pagos.
  * @param {string} driverId UID del conductor.
  * @param {number} maxResults Máximo de resultados (1 a MAX_HISTORY_TRIPS).
@@ -209,7 +218,13 @@ export async function getDriverTripHistory(
   const historyQuery = query(
     collection(database, 'trips'),
     where('driverId', '==', driverId),
-    where('status', 'in', [TRIP_STATUS.COMPLETED, TRIP_STATUS.CANCELLED]),
+    // AI-assisted: see docs/AI_LOG.md #29
+    // paid: viajes con el pago registrado (efectivo o, más adelante, digital).
+    where('status', 'in', [
+      TRIP_STATUS.COMPLETED,
+      TRIP_STATUS.PAID,
+      TRIP_STATUS.CANCELLED,
+    ]),
     limit(historyLimit)
   );
 
@@ -221,4 +236,63 @@ export async function getDriverTripHistory(
       ...tripDocument.data(),
     }))
     .sort((a, b) => finishedAtSeconds(b) - finishedAtSeconds(a));
+}
+
+// AI-assisted: see docs/AI_LOG.md #29
+// Cobros en efectivo y saldo del conductor (ver cashPaymentService.js).
+export async function registerCashPayment(tripId, driverId, database = db) {
+  return registerCashPaymentWithDatabase(database, tripId, driverId);
+}
+
+export function subscribeToPendingCashTrips(
+  driverId,
+  onData,
+  onError,
+  database = db
+) {
+  return subscribeToPendingCashTripsWithDatabase(
+    database,
+    driverId,
+    onData,
+    onError
+  );
+}
+
+export function subscribeToDriverLedger(
+  driverId,
+  onData,
+  onError,
+  database = db
+) {
+  return subscribeToDriverLedgerWithDatabase(
+    database,
+    driverId,
+    onData,
+    onError
+  );
+}
+
+// Lista completa (todas las páginas) de cobros en efectivo por confirmar.
+export async function fetchPendingCashTrips(driverId, database = db) {
+  return fetchPendingCashTripsWithDatabase(database, driverId);
+}
+
+// Totales del saldo calculados en el servidor sobre todos los asientos.
+export async function getDriverBalanceTotals(driverId, database = db) {
+  return getDriverBalanceTotalsWithDatabase(database, driverId);
+}
+
+// Asientos recientes y saldo completo en tiempo real.
+export function subscribeToDriverBalance(
+  driverId,
+  onData,
+  onError,
+  database = db
+) {
+  return subscribeToDriverBalanceWithDatabase(
+    database,
+    driverId,
+    onData,
+    onError
+  );
 }

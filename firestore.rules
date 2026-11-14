@@ -482,8 +482,9 @@ service cloud.firestore {
           // máximo 50 por consulta. No exige estar conectado.
           || (
             resource.data.get('driverId', null) == request.auth.uid
+            // AI-assisted: see docs/AI_LOG.md #29
             && resource.data.get('status', null) in [
-              'completed', 'cancelled'
+              'completed', 'paid', 'cancelled'
             ]
             && request.query.limit <= 50
           )
@@ -500,10 +501,13 @@ service cloud.firestore {
           resource.data.get('status', null) == 'pending'
             ? request.resource.data.get('status', null) == 'accepted'
               && validTripAcceptance(tripId)
-            : resource.data.get('status', null) in [
-                'accepted', 'driver_arriving', 'in_progress'
-              ]
-              && validTripLifecycleTransition()
+            // AI-assisted: see docs/AI_LOG.md #29
+            : resource.data.get('status', null) == 'completed'
+              ? validCashPaymentRegistration(tripId)
+              : resource.data.get('status', null) in [
+                  'accepted', 'driver_arriving', 'in_progress'
+                ]
+                && validTripLifecycleTransition()
         );
     }
 
@@ -518,6 +522,72 @@ service cloud.firestore {
 
       // El propietario puede borrar su propia ubicación al desconectarse.
       allow delete: if isOwner(uid);
+    }
+
+    // AI-assisted: see docs/AI_LOG.md #29
+    // Cobro en efectivo: el conductor asignado pasa un viaje completed y
+    // pagado en efectivo a paid. Exige, en la misma escritura atómica, el
+    // asiento de comisión drivers/{uid}/ledgerEntries/cash_{tripId}. Es una
+    // declaración del conductor: las reglas no pueden verificar que el
+    // pasajero entregó el dinero.
+    function validCashPaymentRegistration(tripId) {
+      return validCashPaymentChange(
+        resource.data,
+        request.resource.data,
+        request.resource.data.diff(resource.data).affectedKeys(),
+        tripId
+      );
+    }
+
+    function validCashPaymentChange(before, after, changed, tripId) {
+      return before.get('driverId', null) == request.auth.uid
+        && before.get('paymentMethod', null) == 'cash'
+        && before.get('paymentStatus', null) == null
+        && after.get('status', null) == 'paid'
+        && after.get('paymentStatus', null) == 'cash'
+        && after.get('paidAt', null) == request.time
+        && changed.hasOnly(['status', 'paymentStatus', 'paidAt'])
+        && existsAfter(
+          /databases/$(database)/documents/drivers/$(request.auth.uid)/ledgerEntries/$('cash_' + tripId)
+        );
+    }
+
+    // Asiento de comisión de un viaje en efectivo. Los importes deben ser
+    // exactamente los del desglose guardado al finalizar (#27) y el viaje
+    // debe quedar pagado en efectivo en la misma escritura (getAfter).
+    function validCashCommissionEntry(entryId, entry, before, after) {
+      return entry.keys().hasOnly([
+          'type', 'tripId', 'status', 'currency', 'fare', 'tip',
+          'cashAmount', 'commission', 'commissionRate', 'driverEarnings',
+          'amount', 'createdAt'
+        ])
+        && entry.keys().hasAll([
+          'type', 'tripId', 'status', 'currency', 'fare', 'tip',
+          'cashAmount', 'commission', 'commissionRate', 'driverEarnings',
+          'amount', 'createdAt'
+        ])
+        && entry.tripId is string
+        && entryId == 'cash_' + entry.tripId
+        && entry.type == 'cash_commission'
+        && entry.status == 'pending'
+        && entry.currency == 'COP'
+        && entry.createdAt == request.time
+        && before.get('status', null) == 'completed'
+        && before.get('driverId', null) == request.auth.uid
+        && before.get('paymentMethod', null) == 'cash'
+        && before.get('paymentStatus', null) == null
+        && before.get('fare', null) is number
+        && before.get('commission', null) is number
+        && before.get('driverEarnings', null) is number
+        && after.get('status', null) == 'paid'
+        && after.get('paymentStatus', null) == 'cash'
+        && entry.fare == before.fare
+        && entry.tip == before.get('tip', null)
+        && entry.commission == before.commission
+        && entry.commissionRate == before.get('commissionRate', null)
+        && entry.driverEarnings == before.driverEarnings
+        && entry.cashAmount == before.fare + before.tip
+        && entry.amount == before.commission;
     }
 
     // AI-assisted: see docs/AI_LOG.md #28
@@ -563,6 +633,26 @@ service cloud.firestore {
         );
 
       allow delete: if false;
+    }
+
+    // AI-assisted: see docs/AI_LOG.md #29
+    // Saldo del conductor. Solo él lo lee. Solo puede crear el asiento de
+    // comisión de su viaje en efectivo junto con el cobro; no puede
+    // modificarlo, borrarlo ni marcarlo como liquidado. La conciliación de
+    // comisiones (estado settled, asientos de liquidación) queda reservada a
+    // un backend administrativo con credenciales de servidor.
+    match /drivers/{uid}/ledgerEntries/{entryId} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && validCashCommissionEntry(
+          entryId,
+          request.resource.data,
+          get(/databases/$(database)/documents/trips/$(request.resource.data.tripId)).data,
+          getAfter(/databases/$(database)/documents/trips/$(request.resource.data.tripId)).data
+        );
+
+      allow update, delete: if false;
     }
 
     match /drivers/{uid} {

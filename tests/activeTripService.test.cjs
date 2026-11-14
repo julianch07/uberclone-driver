@@ -42,7 +42,8 @@ test('El historial consulta solo viajes finalizados propios con límite 50', asy
   assert.deepEqual(history.map((trip) => trip.id), ['cancel', 'new', 'old']);
   assert.deepEqual(calls.filter(x => x[0] === 'where'), [
     ['where', 'driverId', '==', 'driver-1'],
-    ['where', 'status', 'in', ['completed', 'cancelled']],
+    // AI-assisted: see docs/AI_LOG.md #29
+    ['where', 'status', 'in', ['completed', 'paid', 'cancelled']],
   ]);
   assert.ok(calls.some(x => x[0] === 'limit' && x[1] === 50));
 });

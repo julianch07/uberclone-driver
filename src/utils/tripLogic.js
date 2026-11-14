@@ -4,14 +4,18 @@
 // Estados persistidos en el campo status. `pending` equivale al estado
 // `requested` de la guía y se conserva para no romper datos ni reglas.
 // "Llegué al origen" no es un estado: se registra con la marca de tiempo
-// arrivedAt dentro de driver_arriving. Los estados `paid` (módulo de pagos)
-// y `rejected` (decisión global de un backend) no los escribe esta app.
+// arrivedAt dentro de driver_arriving. `rejected` (decisión global de un
+// backend) no lo escribe esta app.
+// AI-assisted: see docs/AI_LOG.md #29
+// `paid`: el pago quedó registrado. En efectivo lo registra el conductor;
+// en pagos digitales lo escribirá el backend de la pasarela.
 export const TRIP_STATUS = {
   PENDING: 'pending',
   ACCEPTED: 'accepted',
   DRIVER_ARRIVING: 'driver_arriving',
   IN_PROGRESS: 'in_progress',
   COMPLETED: 'completed',
+  PAID: 'paid',
   CANCELLED: 'cancelled',
 };
 

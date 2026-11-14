@@ -4,6 +4,7 @@
 // AI-assisted: see docs/AI_LOG.md #18
 // AI-assisted: see docs/AI_LOG.md #20
 // AI-assisted: see docs/AI_LOG.md #28
+// AI-assisted: see docs/AI_LOG.md #29
 
 import { useCallback, useState } from 'react';
 import {
@@ -26,6 +27,7 @@ import {
   getTripEstimate,
 } from '../../utils/tripRequestLogic';
 import { OFFER_TIMING_STATE } from '../../utils/tripRequestTimer';
+import PendingCashPayments from '../payments/PendingCashPayments';
 
 import {
   markDriverArriving,
@@ -284,6 +286,9 @@ export default function TripRequests({ uid, enabled }) {
 
   if (!enabled) {
     return (
+      <View>
+        {/* AI-assisted: see docs/AI_LOG.md #29 */}
+        <PendingCashPayments uid={uid} />
       <View style={styles.card}>
         <Text style={styles.title}>
           Solicitudes de viajes
@@ -295,11 +300,16 @@ export default function TripRequests({ uid, enabled }) {
           solicitudes.
         </Text>
       </View>
+      </View>
     );
   }
 
   return (
     <View>
+      {/* AI-assisted: see docs/AI_LOG.md #29 */}
+      {/* Cobros en efectivo de viajes recién finalizados. */}
+      <PendingCashPayments uid={uid} />
+
       <Text style={styles.heading}>
         Solicitudes disponibles
       </Text>
